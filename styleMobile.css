@@ -1,0 +1,33 @@
+/* Denna kod körs bara på mobilen (tack vare din media-länk i HTML) */
+
+.sidebar {
+    left: -250px; /* Flytta ut hela sidebaren till vänster */
+    transition: 0.3s; /* Gör att den glider snyggt */
+    z-index: 9999; /* Se till att den ligger över allt annat */
+}
+
+/* När vi lägger till denna klass med JS, glider menyn in */
+.sidebar.mobile-open {
+    left: 0;
+}
+
+/* Stylingen för själva hamburgarknappen */
+.menu-btn {
+    position: fixed;
+    top: 15px;
+    right: 15px; /* Eller left: 15px om du föredrar det */
+    z-index: 10000;
+    background-color: var(--wigell-color);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+/* VIKTIGT: På mobilen kan inte main-ytan ha margin-left! */
+#content-area {
+    margin-left: 0 !important;
+    padding-top: 60px; /* Ge plats så att knappen inte täcker rubriker */
+}
