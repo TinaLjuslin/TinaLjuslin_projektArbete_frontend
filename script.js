@@ -1,33 +1,232 @@
 /*
-om man är inloggad som admin kan man ta bort sig själv i listan
-om man skapar ny användare blir man inte längre inloggad direkt
-om en användare ändrar sin email, ändra username, logga ut och be om inlogg igen
-*/
+Får jag tillbaka carId så jag kan visa bara den bilen och inte listan
+
+
+ */
+
+/* ==========================================================================
+   CONFIG & MENU DEFINITIONS
+   ========================================================================== */
 
 const menuItems = [
     { name: 'Hem', view: 'view-introduction', roles: ['USER', 'ADMIN'] },
     { name: 'Bokning', view: 'view-booking', roles: ['USER', 'ADMIN'] },
-    { name: 'Bilar', view: 'view-car', roles: ['USER', 'ADMIN', 'GUEST'] },
+    { name: 'Bilar', view: 'view-cars', roles: ['USER', 'ADMIN', 'GUEST'] },
+    { name: 'Ny bil', view: 'view-car-new', roles: ['ADMIN'] },
     { name: 'Visa användare', view: 'view-user-get-all', roles: ['ADMIN'] },
     { name: 'Ny användare', view: 'view-user-new', roles: ['ADMIN'] },
     { name: 'Logga in', view: 'view-login', roles: ['GUEST'] },
     { name: 'Ny användare', view: 'view-user-new', roles: ['GUEST'] },
     { name: 'Min profil', view: 'view-profile', roles: ['USER', 'ADMIN'] },
     { name: 'Logga ut', view: 'view-logout', roles: ['USER', 'ADMIN'] }
-
 ];
 
-/**
- * Shows the main page and calls to show the menu for the correct user, or log in if no one is logged in.
- * @param {*} viewId viewId the id of the page to show
- * @returns -
- */
-async function showPage(viewId) {
-    console.log('!!!!!! showPage !!!!!!');
+/* ==========================================================================
+   1. API / FETCH FUNCTIONS (Enbart kommunikation med din Spring Boot backend)
+   ========================================================================== */
+
+async function fetchCars() {
+    console.log('!!!!!! fetchCars !!!!!!');
+    try {
+        const response = await fetch('http://localhost:8080/api/v1/cars', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        return response.ok ? await response.json() : null;
+    } catch (error) {
+        console.error("Kunde inte nå API:et", error);
+        customAlert("Serverfel. Kontrollera att din backend är igång!", 'negative');
+    }
+}
+
+async function fetchCarById(carId) {
+    console.log(`!!!!!! fetchCarById(${carId}) !!!!!!`);
+    try {
+        const response = await fetch(`http://localhost:8080/api/v1/cars/${carId}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        if (response.ok) {
+            return await response.json();
+        } else {
+            customAlert(`Bil med id ${carId} hittades inte.`, 'negative');
+            return null;
+        }
+    } catch (error) {
+        console.error("Kunde inte nå API:et", error);
+        customAlert("Serverfel. Kontrollera att din backend är igång!", 'negative');
+    }
+}
+
+async function fetchUsers() {
+    console.log('!!!!!! fetchUsers !!!!!!');
+    try {
+        const response = await fetch('http://localhost:8080/api/v1/users', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        return response.ok ? await response.json() : null;
+    } catch (error) {
+        console.error("Kunde inte nå API:et", error);
+        customAlert("Serverfel. Kontrollera att din backend är igång!", 'negative');
+    }
+}
+
+async function fetchUserById(userId) {
+    console.log(`!!!!!! fetchUserById(${userId}) !!!!!!`);
+    try {
+        const response = await fetch(`http://localhost:8080/api/v1/users/${userId}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        return response.ok ? await response.json() : null;
+    } catch (error) {
+        console.error("Kunde inte nå API:et", error);
+        customAlert("Serverfel. Kontrollera att din backend är igång!", 'negative');
+    }
+}
+
+async function apiSaveSessionUserData(userId) {
+    console.log('!!!!!! apiSaveSessionUserData !!!!!!');
+    const user = await fetchUserById(userId);
+    if (user) {
+        sessionStorage.setItem('firstName', user.firstName);
+        sessionStorage.setItem('lastName', user.lastName);
+        sessionStorage.setItem('phone', user.phone);
+        sessionStorage.setItem('email', user.email);
+        sessionStorage.setItem('noOfOrders', user.noOfOrders);
+    }
+}
+async function apiLogin(username, password) {
+    console.log('!!!!!! apiLogin !!!!!!');
+    try {
+        const response = await fetch('http://localhost:8080/api/v1/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel vid inloggning:", error);
+        return null;
+    }
+}
+async function apiCreateUser(userData) {
+    console.log('!!!!!! apiCreateUser !!!!!!');
+    try {
+        const response = await fetch('http://localhost:8080/api/v1/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData)
+        });
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel vid apiCreateUser:", error);
+        return null;
+    }
+}
+async function apiUpdateUser(userId, userData) {
+    console.log(`!!!!!! apiUpdateUser(${userId}) !!!!!!`);
+    try {
+        const response = await fetch(`http://localhost:8080/api/v1/users/${userId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData),
+            credentials: 'include'
+        });
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel vid apiUpdateUser:", error);
+        return null;
+    }
+}
+
+async function apiUpdateCar(carId, carData) {
+    console.log(`!!!!!! apiUpdateCar(${carId}) !!!!!!`);
+    try {
+        const response = await fetch(`http://localhost:8080/api/v1/cars/${carId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(carData),
+            credentials: 'include'
+        });
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel vid apiUpdateCar:", error);
+        return null;
+    }
+}
+async function apiDeleteUser(userId) {
+    try {
+        const response = await fetch(`http://localhost:8080/api/v1/users/${userId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel:", error);
+    }
+
+}
+
+async function apiCreateCar(formData) {
+    console.log('!!!!!! apiCreateCar !!!!!!');
+    try {
+        const response = await fetch('http://localhost:8080/api/v1/cars', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData // Skickar med paketet den fick
+        });
+        return response; // Returnerar hela svaret så handlern kan se om det gick bra
+    } catch (error) {
+        console.error("Nätverksfel i apiCreateCar:", error);
+        return null;
+    }
+}
+
+async function apiDeleteCar(carId) {
+    try {
+        const response = await fetch(`http://localhost:8080/api/v1/cars/${carId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel:", error);
+    }
+}
+/* ==========================================================================
+   2. RENDER FUNCTIONS (Bygger HTML och ritar ut på skärmen)
+   ========================================================================== */
+
+function renderMenu(userRole) {
+    console.log('!!!!!! renderMenu !!!!!!');
+    const menuContainer = document.getElementById('main-menu');
+    menuContainer.innerHTML = '';
+
+    menuItems.forEach(item => {
+        if (item.roles.includes(userRole)) {
+            const li = document.createElement('li');
+            const btn = document.createElement('button');
+            btn.textContent = item.name;
+            btn.onclick = () => showPage(item.view);
+            li.appendChild(btn);
+            menuContainer.appendChild(li);
+        }
+    });
+}
+
+function showPage(viewId) {
+    console.log(`!!!!!! showPage(${viewId}) !!!!!!`);
     const allButtons = document.querySelectorAll('.sidebar button');
     allButtons.forEach(btn => btn.classList.remove('active'));
 
-    // Hitta knappen som har rätt onclick-funktion och ge den klassen active
     allButtons.forEach(btn => {
         if (btn.getAttribute('onclick')?.includes(viewId)) {
             btn.classList.add('active');
@@ -38,33 +237,29 @@ async function showPage(viewId) {
 
     switch (viewId) {
         case 'view-login':
-            showLoginView();
+            renderLoginView();
             return;
         case 'view-introduction':
-            content.innerHTML = `<h1>Hej ${sessionStorage.getItem('firstName')} användare med id: ${sessionStorage.getItem('userId')}</h1>`;
+            content.innerHTML = `<h1>Hej ${sessionStorage.getItem('firstName')}! Användare med id: ${sessionStorage.getItem('userId')}</h1>`;
             break;
         case 'view-booking':
             content.innerHTML = `<h1>view-booking</h1>`;
             break;
-        case 'view-car':
-            displayCars();
+        case 'view-cars':
+            renderCarList();
+            break;
+        case 'view-car-new':
+            renderNewCarView();
             break;
         case 'view-user-get-all':
-            content.innerHTML = `<h1>view-user-get-all</h1>`;
-            const users = await getAllUsers();
-            showAllUsers(users);
-            break;
-        case 'view-user-get-by-id':
-            content.innerHTML = `<h1>view-user-get-by-id</h1>`;
-            break;
-        case 'view-user-update':
-            content.innerHTML = `<h1>view-user-update</h1>`;
+            content.innerHTML = `<h1>Användarlista</h1>`;
+            fetchUsers().then(users => renderUserTable(users));
             break;
         case 'view-user-new':
-            showNewUserView();
+            renderNewUserView();
             break;
         case 'view-profile':
-            showProfile();
+            renderUserProfile(sessionStorage.getItem('userId'));
             break;
         case 'view-logout':
             sessionStorage.clear();
@@ -77,74 +272,10 @@ async function showPage(viewId) {
     }
     closeMobileMenu();
 }
-/**
- * Draws the menu for the user who is logged in (admin or user) if no one is logged in only 'Logga in' 
- * is shown in the menu
- * @param {*} userRole the role of the user who is logged in, or 'GUEST' if no one is logged in  
- */
-function renderMenu(userRole) {
-    console.log('!!!!!! renderMenu !!!!!!');
-    const menuContainer = document.getElementById('main-menu');
-    menuContainer.innerHTML = '';
 
-    menuItems.forEach(item => {
-        if (item.roles.includes(userRole)) {
-            const li = document.createElement('li');
-
-            const btn = document.createElement('button');
-            btn.textContent = item.name;
-
-            // KOLLA HÄR: Om det finns undermeny
-            /*          if (item.subItems) {
-                          // Istället för att byta sida, öppna/stäng undermenyn
-                          btn.onclick = (e) => {
-                              // Vi växlar klassen 'open' på li-elementet
-                              li.classList.toggle('open');
-                          };
-          
-                          const subUl = document.createElement('ul');
-                          subUl.className = 'sub-menu';
-          
-                          item.subItems.forEach(sub => {
-                              const subLi = document.createElement('li');
-                              const subBtn = document.createElement('button');
-                              subBtn.textContent = sub.name;
-                              subBtn.onclick = () => {
-                                  showPage(sub.view);
-                                  // Valfritt: stäng mobilmenyn här om du har en sådan
-                              };
-                              subLi.appendChild(subBtn);
-                              subUl.appendChild(subLi);
-                          });
-                          li.appendChild(btn);
-                          li.appendChild(subUl);
-                      } else {
-          */                // Vanlig knapp utan undermeny
-            btn.onclick = () => showPage(item.view);
-            li.appendChild(btn);
-            //        }
-
-            menuContainer.appendChild(li);
-        }
-    });
-}
-
-// Växla menyn på mobil
-document.getElementById('menu-toggle').onclick = function () {
-    document.querySelector('.sidebar').classList.toggle('mobile-open');
-};
-
-function closeMobileMenu() {
-    console.log('!!!!!! closeMobileMenu !!!!!!');
-    document.querySelector('.sidebar').classList.remove('mobile-open');
-}
-/**
- * Shows log in view
- */
-function showLoginView() {
-    console.log('!!!!!! showLoginView !!!!!!');
+function renderLoginView() {
+    console.log('!!!!!! renderLoginView !!!!!!');
     const content = document.getElementById('content-area');
-
     content.innerHTML = `
         <div class="login-container">
             <h2>Logga in</h2>
@@ -163,100 +294,192 @@ function showLoginView() {
         </div>
     `;
 
-    // Koppla ett event när man skickar formuläret
     document.getElementById('login-form').onsubmit = function (e) {
-        e.preventDefault(); // Förhindra att sidan laddas om
-        handleLogin();
+        e.preventDefault();
+        handleLoginSubmit();
     };
 }
-/**
- * Sends username and password to backend and saves data to sessionStorage if it is a correct login
- */
-async function handleLogin() {
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    const errorMsg = document.getElementById('login-error');
 
-    try {
-        const response = await fetch('http://localhost:8080/api/v1/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-
-        if (response.ok) {
-            const userData = await response.json();
-
-            // 1. Spara bas-data direkt
-            sessionStorage.setItem('isLoggedIn', 'true');
-            sessionStorage.setItem('userId', userData.userId);
-            const role = userData.isAdmin ? 'ADMIN' : 'USER';
-            sessionStorage.setItem('userRole', role);
-
-            // 2. Hämta resten av profilen (namn osv) innan vi går vidare
-            await setUserData(userData.userId);
-
-            // 3. Uppdatera UI
-            renderMenu(role);
-            showPage('view-introduction');
-
-        } else {
-            errorMsg.style.display = 'block';
-        }
-    } catch (error) {
-        console.error("Inloggningsfel:", error);
-        alert("Kunde inte ansluta till servern.");
-    }
-}/**
- * Creates a table with all users for main content
- * @param {*} users an array of all users
- */
-function showAllUsers(users) {
-    console.log('!!!!!! showAllUsers !!!!!!');
+function renderNewUserView() {
+    console.log('!!!!!! renderNewUserView !!!!!!');
     const content = document.getElementById('content-area');
-    if (users === null) {
-
-    }
-    let tableHTML = `
-        <table class='table-rows'>
-            <thead>
-                <tr>
-                    <th>Id</th>
-                    <th>Namn</th>
-                    <th>Username</th>
-                </tr>
-            </thead>
-            <tbody>
+    content.innerHTML = `
+        <div class="new-user-container">
+            <h2>Ny användare</h2>
+            <form id="new-user-form">
+                <div class="form-group">
+                    <label for="firstName">Förnamn:</label>
+                    <input type="text" id="firstName" placeholder="Anna" required>
+                    <label for="lastName">Efternamn:</label>
+                    <input type="text" id="lastName" placeholder="Andersson" required>
+                    <label for="phone">Telefonnummer:</label>
+                    <input type="text" id="phone" placeholder="070-1234567" required>
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" placeholder="anna@email.se" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Lösenord:</label>
+                    <input type="password" id="password" minlength='4' required>
+                    <label for="password2">Repetera lösenord:</label>
+                    <input type="password" id="password2" minlength='4' required>
+                </div>
+                <button type="button" id='btn-cancel' class="btn btn-standard">Avbryt</button>
+                <button type="submit" class="btn btn-standard">Skapa</button>
+                <p id="login-error" style="color: red; display: none;">Kunde inte skapa konto.</p>
+            </form>
+        </div>
     `;
+
+    document.getElementById('new-user-form').onsubmit = function (e) {
+        e.preventDefault();
+        handleCreateUserSubmit();
+    };
+
+    document.getElementById('btn-cancel').addEventListener('click', () => {
+        showPage('view-introduction');
+    });
+
+}
+
+async function renderCarList() {
+    console.log('!!!!!! renderCarList !!!!!!');
+    const content = document.getElementById('content-area');
+    const cars = await fetchCars();
+
+    if (cars && cars.length > 0) {
+        content.innerHTML = '<ul id="car-list"></ul>';
+        const listElement = document.getElementById('car-list');
+
+        cars.forEach(car => {
+            const li = document.createElement('li');
+            const panel = document.createElement('div');
+            panel.classList.add('panel');
+
+            const imageSrc = car.image ? `data:image/webp;base64,${car.image}` : 'img/default.jpg';
+
+            panel.innerHTML = `
+                <div class='panel-img-container'>
+                    <img src="${imageSrc}" alt="${car.name} ${car.model}" class="car-image">
+                </div>
+                <div class='panel-text-content'>
+                    <h4>${car.name} ${car.model}</h4>
+                    <p>Pris: ${car.price} kr/dag</p>
+                </div>
+            `;
+            panel.addEventListener('click', () => {
+                renderCarDetails(car.id);
+            });
+            li.appendChild(panel);
+            listElement.appendChild(li);
+        });
+    } else {
+        content.innerHTML = '<p>Inga bilar hittades.</p>';
+    }
+}
+
+async function renderCarDetails(carId) {
+    console.log('!!!!!! renderCarDetails !!!!!!');
+    const car = await fetchCarById(carId);
+    if (!car) return;
+
+    const content = document.getElementById('content-area');
+    const userRole = sessionStorage.getItem('userRole');
+    const imageSrc = car.image ? `data:image/png;base64,${car.image}` : 'img/default.jpg';
+
+    let html = `
+        <h2>${car.name} ${car.model}</h2>
+        <img src="${imageSrc}" class="detail-image">
+        <p><strong>Pris:</strong> ${car.price} kr</p>
+        <p><strong>Typ:</strong> ${car.type}</p>
+        <p>${car.feature1 || ''}, ${car.feature2 || ''}, ${car.feature3 || ''}</p>
+    `;
+
+    if (userRole === 'GUEST') {
+        html += `<p>Logga in eller skapa konto för att kunna boka bil.</p>`;
+    } else if (userRole === 'USER') {
+        html += `
+            <div class="actions-container">
+                <button id="btn-book-car" class="btn-standard btn">Boka bil</button>
+            </div>
+        `;
+    } else if (userRole === 'ADMIN') {
+        html += `
+            <div class="actions-container">
+                <button id="btn-update-car" class="btn-standard btn">Uppdatera info</button>
+                <button id="btn-delete-car" class="btn-negative btn">Ta bort bil</button>
+            </div>
+        `;
+    }
+
+    content.innerHTML = html;
+
+    // Koppla lyssnare baserat på roll
+    if (userRole === 'USER') {
+        document.getElementById('btn-book-car').addEventListener('click', () => handleBookCarSubmit(carId));
+    }
+    if (userRole === 'ADMIN') {
+        document.getElementById('btn-update-car').addEventListener('click', () => renderUpdateCarForm(carId));
+        document.getElementById('btn-delete-car').addEventListener('click', () => renderDeleteCarConfirm(carId));
+    }
+}
+function renderUserTable(users) {
+    console.log('!!!!!! renderUserTable !!!!!!');
+    const content = document.getElementById('content-area');
+
+    if (!users) {
+        content.innerHTML = "<p>Kunde inte ladda användare.</p>";
+        return;
+    }
+
+    // 1. Skapa själva tabell-elementet
+    const table = document.createElement('table');
+    table.classList.add('table-rows');
+
+    // 2. Skapa thead (rubrikerna) med vanlig innerHTML eftersom den är statisk
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+        <tr>
+            <th>Id</th>
+            <th>Namn</th>
+            <th>Username</th>
+        </tr>
+    `;
+    table.appendChild(thead);
+
+    // 3. Skapa tbody där raderna ska bo
+    const tbody = document.createElement('tbody');
+
+    // 4. Loopa igenom användarna och skapa raderna som riktiga element
     users.forEach(user => {
-        tableHTML += `
-        <tr onclick="handleGetUserById(${user.id})" class="clickable-row">
+        const tr = document.createElement('tr');
+        tr.classList.add('clickable-row');
+
+        tr.innerHTML = `
             <td>${user.id}</td>
             <td>${user.firstName} ${user.lastName}</td>
             <td>${user.username}</td>
-        </tr>
-        `
+        `;
+
+        // Nu fungerar addeventlistener perfekt eftersom tr är ett riktigt element!
+        tr.addEventListener('click', () => renderUserProfile(user.id));
+
+        // Lägg till raden i vår tbody
+        tbody.appendChild(tr);
     });
-    tableHTML += `</tbody></table>`
-    content.innerHTML = tableHTML;
-}
 
-function showProfile() {
-    handleGetUserById(sessionStorage.getItem('userId'));
-}
+    // 5. Sätt ihop allt: lägg till tbody i tabellen
+    table.appendChild(tbody);
 
-async function handleGetUserById(userId) {
-    console.log('!!!!!! handleGetUserById !!!!!!');
+    // 6. Töm content-area och tryck ut vår färdiga tabell i DOM:en
+    content.innerHTML = '';
+    content.appendChild(table);
+}
+async function renderUserProfile(userId) {
+    console.log('!!!!!! renderUserProfile !!!!!!');
     const content = document.getElementById('content-area');
+    const user = await fetchUserById(userId);
+    if (!user) return;
 
-    // Hämta specifika användaren
-    const response = await fetch(`http://localhost:8080/api/v1/users/${userId}`, {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json'
-        }, credentials: 'include'
-    });
-    const user = await response.json();
     let html = `
         <div class="user-card">
             <h2>Användarprofil: ${user.username}</h2>
@@ -267,36 +490,33 @@ async function handleGetUserById(userId) {
                 <p><strong>Telefon:</strong> ${user.phone}</p>
                 <p><strong>Antal bokningar:</strong> ${user.noOfOrders}</p>
             </div>
-        `;
-    //om det inte är samma som inloggad, visa tabort-knapp
+    `;
+
+    // Villkor för knappar (Om det inte är ens eget konto)
     if (sessionStorage.getItem('userId') != userId) {
         html += `
                 <button class="btn-standard" onclick="showPage('view-user-get-all')">Tillbaka till listan</button>    
-                <button class="btn-standard" onclick="updateUserView(${user.id})">Uppdatera användare</button>
-                <button class="btn-standard" onclick="removeUserView(${user.id})">Ta bort användare</button>
+                <button class="btn-standard" onclick="renderUpdateUserForm(${user.id})">Uppdatera användare</button>
+                <button class="btn-standard" onclick="renderDeleteUserConfirm(${user.id})">Ta bort användare</button>
             </div>
         `;
     } else {
         html += `
-                <button class="btn-standard" onclick="updateUserView(${user.id})">Uppdatera användare</button>
+                <button class="btn-standard" onclick="renderUpdateUserForm(${user.id})">Uppdatera användare</button>
             </div>
-            `;
+        `;
     }
     content.innerHTML = html;
 }
-
-async function updateUserView(userId) {
-    console.log('!!!!!! updateUserView !!!!!!');
+async function renderUpdateUserForm(userId) {
+    console.log('!!!!!! renderUpdateUserForm !!!!!!');
     const content = document.getElementById('content-area');
 
     try {
-        // 1. Hämta datan och vänta tills den är klar
-        const user = await getUserData(userId);
+        const user = await fetchUserById(userId);
+        if (!user) return;
 
-        // Dubbelkolla i konsolen att objektet ser ut som du tror
-        console.log("User data mottagen:", user);
-
-        // 2. Skapa formuläret med value i alla fält
+        // 1. Rita ut formuläret på skärmen
         content.innerHTML = `
             <div class="update-user-container">
                 <h2>Uppdatera användare: ${user.username}</h2>
@@ -324,167 +544,244 @@ async function updateUserView(userId) {
                         <label for="password2">Repetera lösenord:</label>
                         <input type="password" id="password2" minlength='4'>
                     </div>
-
-                    <button type="button" onclick="handleUpdateUser()" class="btn btn-standard">Spara ändringar</button>
-                    
-                    <p id="update-error" style="color: red; display: none;">Bla bla bla</p>
+                    <button type="button" id='btn-cancel' class="btn btn-standard">Avbryt</button>
+                    <button type="submit" class="btn btn-standard">Spara ändringar</button>
+                    <p id="update-error" style="color: red; display: none;"></p>
                 </form>
             </div>
         `;
-    } catch (error) {
-        console.error("Kunde inte ladda användare:", error);
-        content.innerHTML = "<p>Kunde inte hämta användardata.</p>";
-    }
 
-    // Koppla ett event när man skickar formuläret
-    document.getElementById('update-user-form').onsubmit = function (e) {
-        e.preventDefault(); // Förhindra att sidan laddas om
-        handleUpdateUser();
-    };
-}
-
-async function handleUpdateUser() {
-    console.log('!!!!!! handleUpdateUser !!!!!!');
-    const userId = document.getElementById('update-id').value;
-    const firstName = document.getElementById('firstName').value;
-
-    console.log('!!!!!! handleUpdateUser 2 !!!!!!');
-    const lastName = document.getElementById('lastName').value;
-    const phone = document.getElementById('phone').value;
-    const email = document.getElementById('email').value;
-    const username = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    const password2 = document.getElementById('password2').value;
-    const errorMsg = document.getElementById('update-error');
-    errorMsg.style.display = 'none';
-    errorMsg.textContent = '';
-    console.log('!!!!!! handleUpdateUser 3 !!!!!!');
-    /*if (password === "" && password2 === "") {
-        //hämta gamla lösenordet och spara
-    }*/
-    if (!firstName.trim() || !lastName.trim() || !email.trim() || !phone.trim()) {
-        errorMsg.textContent = "Alla fält (Namn, Efternamn, E-post och Telefon) måste fyllas i!";
-        errorMsg.style.display = 'block';
-        return; // Avbryt funktionen här
-    }
-    if (password !== password2 || password === "" || password === null) {
-        errorMsg.textContent = "Lösenorden matchar inte!";
-        errorMsg.style.display = 'block';
-        return;
-    }
-    try {
-        console.log('!!!!!! handleUpdateUser 4 !!!!!!');
-        const response = await fetch(`http://localhost:8080/api/v1/users/${userId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                "firstName": firstName,
-                "lastName": lastName,
-                "username": username,
-                "phone": phone,
-                "email": email,
-                'password': password,
-                "noOfOrders": sessionStorage.getItem('noOfOrders'),
-                "role": sessionStorage.getItem('userRole'),
-            }), credentials: 'include'
+        // 2. Koppla lyssnaren DIREKT när vi vet att elementet finns i DOM:en
+        document.getElementById('update-user-form').addEventListener('submit', (e) => {
+            e.preventDefault(); // Hindra sidan från att laddas om
+            handleUpdateUserSubmit();
         });
-        if (response.ok) {
-            //1 admin
-            //2 användare uppdaterar sig själv men inte email
-            //3 användare uppdaterar sitt email, ska bli utloggad
-            const userData = await response.json();
-
-            if (sessionStorage.getItem('userRole') === 'ADMIN') {
-                console.log('!!!!!! handleUpdateUser 6 !!!!!!');
-                alert('AnvÄndare uppdaterad');
-                renderMenu(sessionStorage.getItem('userRole'));
+        document.getElementById('btn-cancel').addEventListener('click', () => {
+            // Om en admin uppdaterar någon annan vill vi kanske gå till listan, 
+            // men om man uppdaterar sig själv går vi till profilvyn.
+            if (sessionStorage.getItem('userId') == userId) {
+                showPage('view-profile');
+            } else {
                 showPage('view-user-get-all');
-            } else if (sessionStorage.getItem('userId') == userId) {
-                console.log('!!!!!! handleUpdateUser 7 !!!!!!');
-                if (sessionStorage.getItem('email') === email) {
-                    renderMenu(sessionStorage.getItem('userRole'));
-                    await setUserData(userId);
-                    showPage('view-introduction');
-                } else {
-                    alert('Användare uppdaterad, eftersom du bytt email behöver du logga in med ditt nya email som användarnamn');
-                    sessionStorage.clear();
-                    renderMenu('GUEST');
-                    showPage('view-login')
-
-                }
             }
-        } else {
-            errorMsg.textContent = 'Kunde inte uppdatera konto, email kan vara upptaget.';
-            errorMsg.style.display = 'block';
-        }
+        });
+
     } catch (error) {
-        console.error("Kunde inte nå API:et", error);
-        alert("Serverfel. Kontrollera att din backend är igång!");
+        console.error("Kunde inte ladda användareformulär:", error);
     }
 }
-function showNewUserView() {
-    console.log('!!!!!! showNewUserView !!!!!!');
+function renderDeleteUserConfirm(userId) {
+    console.log(`!!!!!! renderDeleteUserConfirm för id ${userId} !!!!!!`);
+
+    // Vi öppnar popupen, och OM användaren klickar på "Ja", 
+    // så körs funktionen inuti pilen () => { ... }
+    customConfirm(
+        `Är du helt säker på att du vill ta bort användaren med ID ${userId}? Denna åtgärd kan inte ångras.`,
+        () => {
+            handleDeleteUserSubmit(userId);
+        }
+    );
+}
+function renderDeleteCarConfirm(carId) {
+    console.log(`!!!!!! renderDeleteCarConfirm för bil: ${carId} !!!!!!`);
+    customConfirm(
+        `Är du helt säker på att du vill ta bort bil med ID ${carId}? Denna åtgärd kan inte ångras.`,
+        () => {
+            handleDeleteCarSubmit(carId);
+        }
+    );
+}
+async function renderUpdateCarForm(carId) {
+    console.log(`!!!!!! renderUpdateCarForm för bil: ${carId} !!!!!!`);
     const content = document.getElementById('content-area');
 
-    content.innerHTML = `
-        <div class="new-user-container">
-            <h2>Ny användare</h2>
-            <form id="new-user-form">
-                <div class="form-group">
-                    <label for="firstName">Förnamn:</label>
-                    <input type="text" id="firstName" placeholder="Anna" required>
-                    <label for="lastName">Efternamn:</label>
-                    <input type="text" id="lastName" placeholder="Andersson" required>
-                    <label for="phone">Telefonnummer:</label>
-                    <input type="text" id="phone" placeholder="070-1234567" required>
-                    <label for="email">Email:</label>
-                    <input type="email" id="email" placeholder="anna@email.se" required>
-        
+    try {
+        const car = await fetchCarById(carId);
+        if (!car) return;
+
+        // 1. Rita ut formuläret på skärmen
+        content.innerHTML = `
+            <div class="update-car-container">
+                <h2>Uppdatera bil med id: ${carId}</h2>
+                <form id="update-car-form">
+                    <input type="hidden" id="update-id" value="${carId}">
+
+                    <div class="form-group">
+                        <label for="name">Namn:</label>
+                        <input type="text" id="name" value="${car.name || ''}" required>
+                        <label for="model">Modell:</label>
+                        <input type="text" id="model" value="${car.model || ''}" required>
+                        <label for="price">Pris:</label>
+                        <input type="text" id="price" value="${car.price || ''}" required>
+                        <label for="type">Typ:</label>
+                        <input type="text" id="type" value="${car.type || ''}" required>
+                        <label for="feature1">Tillbehör 1:</label>
+                        <input type="text" id="feature1" value="${car.feature1 || ''}">
+                        <label for="feature2">Tillbehör 2:</label>
+                        <input type="text" id="feature2" value="${car.feature2 || ''}">
+                        <label for="feature3">Tillbehör 3:</label>
+                        <input type="text" id="feature3" value="${car.feature3 || ''}">
+                        
                     </div>
-                <div class="form-group">
-                    <label for="password">Lösenord:</label>
-                    <input type="password" id="password" minlength='4' required>
-                    <label for="password2">Repetera lösenord:</label>
-                    <input type="password" id="password2" minlength='4' required>
-                </div>
-                <button type="submit" class="btn btn-standard">Skapa</button>
-                <p id="login-error" style="color: red; display: none;">Fel användarnamn eller lösenord.</p>
-            </form>
+                    <button type="button" id='btn-cancel' class="btn btn-standard">Avbryt</button>
+                    <button type="submit" class="btn btn-standard">Uppdatera</button>
+                    <p id="update-error" style="color: red; display: none;"></p>
+                </form>
+            </div>
+        `;
+
+        // 2. Koppla lyssnaren DIREKT när vi vet att elementet finns i DOM:en
+        document.getElementById('update-car-form').addEventListener('submit', (e) => {
+            e.preventDefault(); // Hindra sidan från att laddas om
+            handleUpdateCarSubmit(carId);
+        });
+        document.getElementById('btn-cancel').addEventListener('click', () => {
+            showPage('view-cars');
+        });
+
+    } catch (error) {
+        console.error("Kunde inte ladda användareformulär:", error);
+    }
+}
+function renderNewCarView() {
+    console.log('!!!!!! renderNewCarView !!!!!!');
+    const content = document.getElementById('content-area');
+    content.innerHTML = `
+            <div class="new-car-container">
+                <h2>Ny bil</h2>
+                <form id="new-car-form">
+                    <div class="form-group">
+                        <label for="name">Namn:</label>
+                        <input type="text" id="name" placeholder="Volvo" required>
+                        <label for="model">Modell:</label>
+                        <input type="text" id="model" placeholder="V70" required>
+                        <label for="price">Pris:</label>
+                        <input type="text" id="price" placeholder="2500" required>
+                        <label for="type">Typ:</label>
+                        <input type="text" id="type" placeholder="Kombi" required>
+                        <label for="feature1">Tillbehör 1:</label>
+                        <input type="text" id="feature1" placeholder="AC">
+                        <label for="feature2">Tillbehör 2:</label>
+                        <input type="text" id="feature2" placeholder="AC">
+                        <label for="feature3">Tillbehör 3:</label>
+                        <input type="text" id="feature3" placeholder="AC">
+                        <label for="car-image-input">Bilbild:</label>
+                        <input type="file" id="car-image-input" accept="image/*">
+                    </div>
+                    <button type="button" id='btn-cancel' class="btn btn-standard">Avbryt</button>
+                    <button type="submit" class="btn btn-standard">Skapa</button>
+                    <p id="car-error" style="color: red; display: none;">Kunde inte skapa bil.</p>
+                </form>
+            </div>
+        `;
+
+    document.getElementById('new-car-form').onsubmit = function (e) {
+        e.preventDefault();
+        handleCreateCarSubmit();
+    };
+
+    document.getElementById('btn-cancel').addEventListener('click', () => {
+        showPage('view-introduction');
+    });
+
+}
+function customAlert(message, type = 'positive') {
+    console.log(`!!!!!! customAlert modal: ${message} (${type}) !!!!!!`);
+
+    // 1. Skapa overlay (mörka/suddiga bakgrunden)
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay show'; // Vi ger den 'show' direkt så den tonar in
+
+    // Bestäm färg på OK-knappen baserat på om det är ett fel (negative) eller framgång (positive)
+    const btnClass = type === 'negative' ? 'btn-negative' : 'btn-positive';
+
+    // 2. Bygg strukturen för modalen inuti overlayen
+    overlay.innerHTML = `
+        <div class="modal-content text-alert">
+            <div class="alert-icon-wrapper ${type}">
+                ${type === 'positive' ? '✓' : '✕'}
+            </div>
+            <p class="modal-message">${message}</p>
+            <div class="modal-buttons">
+                <button class="btn ${btnClass}" id="custom-alert-ok-btn">OK</button>
+            </div>
         </div>
     `;
 
-    // Koppla ett event när man skickar formuläret
-    document.getElementById('new-user-form').onsubmit = function (e) {
-        e.preventDefault(); // Förhindra att sidan laddas om
-        handleNewUser();
+    // 3. Tryck ut den på skärmen (längst ner i body)
+    document.body.appendChild(overlay);
+
+    // 4. Gör så att OK-knappen stänger och raderar modalen helt ur DOM:en
+    document.getElementById('custom-alert-ok-btn').onclick = function () {
+        overlay.classList.remove('show'); // Starta uttoningsanimationen
+        setTimeout(() => overlay.remove(), 300); // Ta bort från HTML när animationen är klar
     };
 }
-async function getAllUsers() {
-    console.log('!!!!!! getallUsers !!!!!!');
-    try {
-        const response = await fetch('http://localhost:8080/api/v1/users', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include'
-        });
-        if (response.ok) {
-            console.log('response ok, get all');
-            const userData = await response.json();
-            return userData;
-        } else {
-            return;
+// ÄNDRAT HÄR: Vi tar emot 'onConfirm' som ett argument
+function customConfirm(message, onConfirm) {
+    console.log(`!!!!!! customConfirm modal: ${message} !!!!!!`);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay show';
+
+    overlay.innerHTML = `
+        <div class="modal-content text-alert">
+            <div class="alert-icon-wrapper warning">⚠️</div>
+            <p class="modal-message">${message}</p>
+            <div class="modal-buttons" style="gap: 15px;">
+                <button class="btn btn-standard" id="custom-confirm-cancel-btn">Avbryt</button>
+                <button class="btn btn-negative" id="custom-confirm-ok-btn">Ja, ta bort</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Om användaren klickar på "Ja, ta bort"
+    document.getElementById('custom-confirm-ok-btn').onclick = function () {
+        overlay.classList.remove('show');
+        overlay.remove();
+
+        if (typeof onConfirm === 'function') {
+            onConfirm();
         }
-    } catch (error) {
-        console.error("Kunde inte nå API:et", error);
-        alert("Serverfel. Kontrollera att din backend är igång!");
+    };
+
+    // Om användaren klickar på Avbryt
+    document.getElementById('custom-confirm-cancel-btn').onclick = function () {
+        overlay.classList.remove('show');
+        setTimeout(() => overlay.remove(), 300);
+    };
+}
+/* ==========================================================================
+   3. HANDLERS / EVENTS (Hanterar klick och formulärskick)
+   ========================================================================== */
+// SEKTION 3: HANDLERS
+async function handleLoginSubmit() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const errorMsg = document.getElementById('login-error');
+
+    const response = await apiLogin(username, password);
+
+    if (response && response.ok) {
+        const userData = await response.json();
+        sessionStorage.setItem('isLoggedIn', 'true');
+        sessionStorage.setItem('userId', userData.userId);
+        const role = userData.isAdmin ? 'ADMIN' : 'USER';
+        sessionStorage.setItem('userRole', role);
+
+        await apiSaveSessionUserData(userData.userId);
+
+        renderMenu(role);
+        showPage('view-introduction');
+    } else {
+        errorMsg.style.display = 'block';
     }
 }
-async function handleNewUser() {
-    console.log('!!!!!! handleNewUser !!!!!!');
+// SEKTION 3: HANDLERS
+async function handleCreateUserSubmit() {
+    console.log('!!!!!! handleCreateUserSubmit !!!!!!');
     const firstName = document.getElementById('firstName').value;
     const lastName = document.getElementById('lastName').value;
     const phone = document.getElementById('phone').value;
@@ -499,110 +796,207 @@ async function handleNewUser() {
         errorMsg.style.display = 'block';
         return;
     }
-    try {
 
-        const response = await fetch('http://localhost:8080/api/v1/users', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                "firstName": firstName,
-                "lastName": lastName,
-                "username": username,
-                "phone": phone,
-                "email": email,
-                "password": password,
-            })
-        });
+    const userData = { firstName, lastName, username, phone, email, password };
+    const response = await apiCreateUser(userData);
 
-        if (response.ok) {
-            const userData = await response.json();
-            console.log('userData: ' + userData);
-            if (sessionStorage.getItem('userRole') === 'GUEST') {
-                console.log('2');
-                sessionStorage.setItem('isLoggedIn', 'true');
+    if (response && response.ok) {
+        const savedUser = await response.json();
 
-                console.log("Ny användare skapad och inloggad!", userData);
-                sessionStorage.setItem('userRole', 'USER');
-                sessionStorage.setItem('userId', userData.id);
+        if (sessionStorage.getItem('userRole') === 'GUEST' || !sessionStorage.getItem('userRole')) {
+            sessionStorage.setItem('isLoggedIn', 'true');
+            sessionStorage.setItem('userRole', 'USER');
+            sessionStorage.setItem('userId', savedUser.id);
+            sessionStorage.setItem('firstName', savedUser.firstName);
 
-                const roleToUse = 'USER';
-                renderMenu(roleToUse);
-                const name = userData.firstName;
-                sessionStorage.setItem('firstName', name);
-                // 2. Visa välkomstsidan
-                showPage('view-introduction');
-            } else if (sessionStorage.getItem('userRole') === 'ADMIN') {
-                console.log('3');
-                const content = document.getElementById('content-area');
-                content.innerHTML = `
-                    <div class="user-card">
-                        <h2>Användarprofil: ${userData.username}</h2>
-                        <div class="user-info-grid">
-                            <p><strong>ID:</strong> ${userData.id}</p>
-                            <p><strong>Namn:</strong> ${userData.firstName} ${userData.lastName}</p>
-                            <p><strong>E-post:</strong> ${userData.email}</p>
-                            <p><strong>Telefon:</strong> ${userData.phone}</p>
-                            <p><strong>Antal bokningar:</strong> ${userData.noOfOrders}</p>
-                        </div>
-                        <button class="btn-standard" onclick="showPage('view-user-get-all')">Tillbaka till listan</button>
-                             
-                    </div>
-                `;
-
-            }
-
-        } else {
-            errorMsg.textContent = 'Kunde inte skapa konto, email kan vara upptaget.';
-            errorMsg.style.display = 'block';
+            renderMenu('USER');
+            showPage('view-introduction');
+        } else if (sessionStorage.getItem('userRole') === 'ADMIN') {
+            customAlert("Ny användare skapad av admin!", 'positive');
+            showPage('view-user-get-all');
         }
-    } catch (error) {
-        console.error("Kunde inte nå API:et", error);
-        alert("Serverfel. Kontrollera att din backend är igång!");
+    } else {
+        errorMsg.textContent = 'Kunde inte skapa konto, email kan vara upptaget.';
+        errorMsg.style.display = 'block';
     }
 }
+// SEKTION 3: HANDLERS
+async function handleUpdateUserSubmit() {
+    console.log('!!!!!! handleUpdateUserSubmit !!!!!!');
+    const userId = document.getElementById('update-id').value;
+    const firstName = document.getElementById('firstName').value;
+    const lastName = document.getElementById('lastName').value;
+    const phone = document.getElementById('phone').value;
+    const email = document.getElementById('email').value;
+    const username = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const password2 = document.getElementById('password2').value;
+    const errorMsg = document.getElementById('update-error');
 
+    errorMsg.style.display = 'none';
 
-function removeUserView(userId) {
-    console.log('!!!!!! removeUserView !!!!!!');
-    const content = document.getElementById('content-area');
-    content.innerHTML = `<h2>Ta bort användare, är du säker på att du vill ta bort användare med id ${userId}?</h2>
-    <button class='btn btn-standard' id='btn-remove-user' onclick='removeUser(${userId})'>Ta bort</button>`
-}
-async function removeUser(userId) {
-    console.log('!!!!!! removeUser !!!!!!');
-    if (userId == sessionStorage.getItem('userId')) {
-        alert("Du kan inte ta bort ditt eget konto!");
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !phone.trim()) {
+        errorMsg.textContent = "Alla fält måste fyllas i!";
+        errorMsg.style.display = 'block';
         return;
     }
-    try {
-        const response = await fetch(`http://localhost:8080/api/v1/users/${userId}`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include'
-        });
+    if (password !== password2 || password === "") {
+        errorMsg.textContent = "Lösenorden matchar inte eller är tomma!";
+        errorMsg.style.display = 'block';
+        return;
+    }
 
-        if (response.ok) {
-            console.log("Användaren raderad (Status 204)");
+    const userData = {
+        firstName, lastName, username, phone, email, password,
+        "noOfOrders": sessionStorage.getItem('noOfOrders'),
+        "role": sessionStorage.getItem('userRole')
+    };
 
-            const content = document.getElementById('content-area');
-            content.innerHTML = `
-                <div class="alert-success">
-                    <h2>Användare med id ${userId} borttagen</h2>
-                    <button class="btn-standard" onclick="showPage('view-user-get-all')">Tillbaka till listan</button>
-                </div>`;
-        } else {
-            // Om status t.ex. är 403 eller 500
-            alert("Kunde inte ta bort användaren. Kontrollera behörighet.");
+    const response = await apiUpdateUser(userId, userData);
+
+    if (response && response.ok) {
+        if (sessionStorage.getItem('userRole') === 'ADMIN') {
+            customAlert('Användare uppdaterad framgångsrikt!', 'positive');
+            showPage('view-user-get-all');
+        } else if (sessionStorage.getItem('userId') == userId) {
+            if (sessionStorage.getItem('email') === email) {
+                await apiSaveSessionUserData(userId);
+                showPage('view-introduction');
+            } else {
+                customAlert('Eftersom du bytt email behöver du logga in på nytt.', 'negative');
+                sessionStorage.clear();
+                renderMenu('GUEST');
+                showPage('view-login');
+            }
         }
-    } catch (error) {
-        console.error("Nätverksfel:", error);
+    } else {
+        errorMsg.textContent = 'Kunde inte uppdatera konto.';
+        errorMsg.style.display = 'block';
     }
 }
-// Uppdatera din showPage-funktion så den anropar closeMobileMenu()
+async function handleDeleteUserSubmit(userId) {
+    console.log('!!!!!! handleDeleteUserSubmit !!!!!!');
+
+    // Säkerhetskoll: Ta inte bort sig själv
+    if (userId == sessionStorage.getItem('userId')) {
+        customAlert("Du kan inte ta bort ditt eget konto!", 'negative');
+        return;
+    }
+
+    // Ropa på API-funktionen och VÄNTA (await) på svaret
+    const response = await apiDeleteUser(userId);
+
+    // Hantera resultatet på skärmen
+    if (response && response.ok) {
+        customAlert(`Användare med id ${userId} borttagen ur databasen.`, 'positive');
+        showPage('view-user-get-all');
+    } else {
+        customAlert("Kunde inte ta bort användaren.", 'negative');
+    }
+}
+async function handleBookCarSubmit(carId) {
+    console.log(`!!!!!! handleBookCarSubmit för bil: ${carId} !!!!!!`);
+    // Här fyller du i ditt boknings-fetchanrop sen!
+}
+
+async function handleUpdateCarSubmit(carId) {
+    console.log(`!!!!!! handleUpdateCarSubmit för bil: ${carId} !!!!!!`);
+    const name = document.getElementById('name').value;
+    const model = document.getElementById('model').value;
+    const type = document.getElementById('type').value;
+    const price = document.getElementById('price').value;
+    const feature1 = document.getElementById('feature1').value;
+    const feature2 = document.getElementById('feature2').value;
+    const feature3 = document.getElementById('feature3').value;
+    const errorMsg = document.getElementById('update-error');
+
+    errorMsg.style.display = 'none';
+
+    if (!name.trim() || !model.trim() || !price.trim() || !type.trim()) {
+        errorMsg.textContent = "Alla fält utom egenskaper måste fyllas i!";
+        errorMsg.style.display = 'block';
+        return;
+    }
+
+    const carData = {
+        name, model, feature1, feature2, feature3, type, price
+    };
+
+    const response = await apiUpdateCar(carId, carData);
+
+    if (response && response.ok) {
+
+        customAlert('Bil uppdaterad framgångsrikt!', 'positive');
+        showPage('view-cars');
+
+    } else {
+        errorMsg.textContent = 'Kunde inte uppdatera bil.';
+        errorMsg.style.display = 'block';
+    }
+}
+
+async function handleDeleteCarSubmit(carId) {
+    console.log('!!!!!! handleDeleteCarSubmit !!!!!!');
+
+    // Ropa på API-funktionen och VÄNTA (await) på svaret
+    const response = await apiDeleteCar(carId);
+
+    // Hantera resultatet på skärmen
+    if (response && response.status === 204) {
+        customAlert(`Bil med id ${carId} borttagen ur databasen.`, 'positive');
+        showPage('view-cars');
+    } else {
+        customAlert("Kunde inte ta bort bilen.", 'negative');
+    }
+}
+
+async function handleCreateCarSubmit() {
+    console.log('!!!!!! handleCreateCarSubmit !!!!!!');
+
+    const errorMsg = document.getElementById('car-error');
+    errorMsg.style.display = 'none';
+
+    // 1. Samla in all data från skärmen
+    const formData = new FormData();
+    formData.append('name', document.getElementById('name').value);
+    formData.append('model', document.getElementById('model').value);
+    formData.append('feature1', document.getElementById('feature1').value);
+    formData.append('feature2', document.getElementById('feature2').value);
+    formData.append('feature3', document.getElementById('feature3').value);
+    formData.append('type', document.getElementById('type').value);
+    formData.append('price', document.getElementById('price').value);
+    formData.append('booked', false);
+
+    const imageInput = document.getElementById('car-image-input');
+    if (imageInput.files && imageInput.files[0]) {
+        formData.append('image', imageInput.files[0]);
+    }
+
+    // 2. Skicka datan till API-funktionen och vänta på svar
+    const response = await apiCreateCar(formData);
+
+    // 3. Hantera resultatet på skärmen baserat på hur det gick
+    if (response && response.ok) {
+        const car = await response.json();
+        customAlert("Bilen är sparad!", 'positive');
+        renderCarDetails(car.id);
+    } else {
+        errorMsg.style.display = 'block';
+    }
+}
+
+/* ==========================================================================
+   APP INITIALIZATION & SIDEBAR EVENTS
+   ========================================================================== */
+
+document.getElementById('menu-toggle').onclick = function () {
+    document.querySelector('.sidebar').classList.toggle('mobile-open');
+};
+
+function closeMobileMenu() {
+    document.querySelector('.sidebar').classList.remove('mobile-open');
+}
+
 function initApp() {
     console.log('!!!!!! initApp !!!!!!');
     const savedRole = sessionStorage.getItem('userRole');
@@ -615,105 +1009,6 @@ function initApp() {
         showPage('view-introduction');
     }
 }
-async function getUserData(userId) {
-    console.log('!!!!!! getUserData !!!!!!');
-    try {
-        const response = await fetch(`http://localhost:8080/api/v1/users/${userId}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include'
-        });
 
-        if (response.ok) {
-            const userData = await response.json();
-            return userData;
-        } else {
-            return null;
-        }
-    } catch (error) {
-        console.error("Kunde inte nå API:et", error);
-        alert("Serverfel. Kontrollera att din backend är igång!");
-    }
-}
-async function getCars() {
-    console.log('!!!!!! getCars !!!!!!');
-    try {
-        const response = await fetch(`http://localhost:8080/api/v1/cars`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include'
-        });
-
-        if (response.ok) {
-            const cars = await response.json();
-            return cars;
-        } else {
-            return null;
-        }
-    } catch (error) {
-        console.error("Kunde inte nå API:et", error);
-        alert("Serverfel. Kontrollera att din backend är igång!");
-    }
-}
-
-
-async function setUserData(userId) {
-    const user = await getUserData(userId);
-    console.log('!!!!!! setUserData !!!!!!');
-    sessionStorage.setItem('firstName', user.firstName);
-    sessionStorage.setItem('lastName', user.lastName);
-    sessionStorage.setItem('phone', user.phone);
-    sessionStorage.setItem('email', user.email);
-    sessionStorage.setItem('noOfOrders', user.noOfOrders);
-}
-
-
-//ritar bilar
-async function displayCars() { // 1. Gör funktionen async
-    const content = document.getElementById('content-area');
-
-    // 2. Vänta på att bilarna faktiskt hämtas
-    const cars = await getCars();
-
-    if (cars && cars.length > 0) {
-        content.innerHTML = '<ul id="car-list"></ul>'; // Skapa en behållare
-        const listElement = document.getElementById('car-list');
-
-        cars.forEach((car, index) => {
-            const li = document.createElement('li');
-            const panel = document.createElement('div');
-            panel.classList.add('panel');
-            let imageSrc = 'img/default.jpg'; 
-
-        // 2. Om bilden finns, använd den direkt (Ingen konvertering behövs!)
-        if (car.image) { 
-            imageSrc = `data:image/webp;base64,${car.image}`;
-        }
-    let btnClass = 'btn-standard';
-
-            panel.innerHTML = `
-                <div class='panel-img-container'>
-                    <img src="${imageSrc}" alt="${car.name} ${car.model}" class="car-image">
-                </div>
-                <div class='panel-text-content'>
-
-                    <h4>${car.name} ${car.model}</h4>
-                    <p>Pris: ${car.price}</p>
-                    <p>${car.feature1} ${car.feature2} ${car.feature3}</p>
-                </div>
-                <button id='btn-${car.id}' class='${btnClass}'>
-                    Boka nu
-                </button>
-            `;
-            li.appendChild(panel);
-            listElement.appendChild(li);
-        });
-    } else {
-        content.innerHTML = '<p>Inga bilar hittades.</p>';
-    }
-}
+// Starta applikationen
 initApp();
