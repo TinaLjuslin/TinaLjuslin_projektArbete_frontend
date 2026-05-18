@@ -31,3 +31,125 @@
     margin-left: 0 !important;
     padding-top: 60px; /* Ge plats så att knappen inte täcker rubriker */
 }
+    h1 {
+        font-size: 1.8rem;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+    }
+
+    h3 {
+        font-size: 1.3rem;
+    }
+
+    .panel {
+        flex-direction: column;
+        /* Staplar text och knapp på varandra */
+        align-items: flex-start;
+        /* Håller texten till vänster */
+    }
+
+    .panel button {
+        width: 100%;
+        /* Gör knappen bred och lätt att klicka på i mobilen */
+        margin-left: 0;
+        /* Ta bort marginalen från webb-läget */
+        margin-top: 15px;
+        /* Skapa lite luft mellan text och knapp */
+    }
+
+    .modal-content {
+        width: 90%;
+        /* Gör att modalen tar upp nästan hela bredden på små skärmar */
+        padding: 20px;
+        /* Lite mindre padding så texten får plats */
+    }
+
+    .container {
+        max-width: 100%;
+        /* Låt den ta upp hela bredden på mobilen */
+        padding: 10px;
+        /* Lite mindre luft på sidorna för att spara plats */
+    }
+
+    .table-container,
+    .code-container {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-size: 0.8rem;
+    }
+
+
+    .btn {
+        margin-bottom: 10px;
+    }
+    /* Säkerställ att ingenting sticker ut utanför skärmens bredd */
+body, html {
+    overflow-x: hidden; 
+    width: 100%;
+}
+
+#content-area {
+    margin-left: 0 !important;
+    width: 100%;
+    box-sizing: border-box; /* Räknar in padding i bredden */
+    padding: 70px 15px 20px 15px; /* Mer luft på sidorna */
+}
+
+/* Tabell-fixen */
+.table-container {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: auto; /* Gör tabellen scrollbar i sidled om den är för bred */
+    display: block; /* Krävs för att overflow-x ska funka på vissa element */
+}
+
+table {
+    width: 100% !important;
+    min-width: 0 !important; /* Ta bort eventuella fasta bredder */
+    margin: 0;
+}
+@media screen and (max-width: 768px) {
+    /* Tvinga tabellen att inte bete sig som en tabell */
+    .table-rows, .table-rows thead, .table-rows tbody, .table-rows th, .table-rows td, .table-rows tr {
+        display: block;
+    }
+
+    /* Göm tabellhuvudet (vi lägger till labels istället) */
+    .table-rows thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+
+    .table-rows tr {
+        border: 1px solid #ccc;
+        margin-bottom: 10px;
+        background: #fff;
+        border-radius: 8px;
+        padding: 10px;
+    }
+
+    .table-rows td {
+        border: none;
+        border-bottom: 1px solid #eee;
+        position: relative;
+        padding-left: 50%; /* Skapa plats för "label" */
+        text-align: right;
+        min-height: 30px;
+    }
+
+    /* Här kan man lägga till text innan innehållet om man vill vara avancerad, 
+       men enklast är att bara köra vanlig display:block */
+    .table-rows td:last-child {
+        border-bottom: 0;
+    }
+}
