@@ -463,6 +463,67 @@ td {
     font-size: 0.9rem;
 }
 
+/* MEDDELANDEN  */
+/* 1. Bakgrunden som täcker och suddar skärmen */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(5px); /* Frostad glas-effekt på bakgrunden */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999; /* Alltid överst av allt */
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+/* När modalen blir synlig */
+.modal-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* 2. Själva rutan */
+.modal-content.text-alert {
+    background-color: var(--background-main-color);
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    width: 90%;
+    max-width: 380px;
+    text-align: center;
+    font-family: 'Montserrat', sans-serif;
+    transform: translateY(-30px);
+    transition: transform 0.3s ease;
+}
+
+.modal-overlay.show .modal-content.text-alert {
+    transform: translateY(0);
+}
+
+/* Meddelandetexten */
+.modal-message {
+    font-size: 16px;
+    color: #333;
+    margin: 15px 0 25px 0;
+    line-height: 1.5;
+}
+/* Knappplacering */
+.modal-buttons {
+    display: flex;
+    justify-content: center;
+}
+
+.modal-buttons button {
+    min-width: 100px;
+    padding: 10px 20px;
+    font-weight: 600;
+}
 /********************************************************
     PANELS
 *********************************************************/
