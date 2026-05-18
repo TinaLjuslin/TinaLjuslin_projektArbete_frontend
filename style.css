@@ -466,13 +466,29 @@ td {
 /********************************************************
     PANELS
 *********************************************************/
-.panel {
-    padding: 20px;
-    margin-bottom: 20px;
-    border-left: 5px solid;
-    border-radius: 4px;
+/* Containern som håller alla bil-paneler */
+#car-list {
+    display: flex;
+    flex-wrap: wrap;    /* Gör så att panelerna hoppar ner på nästa rad */
+    gap: 20px;          /* Skapar mellanrum mellan panelerna */
+    list-style: none;   /* Tar bort punkterna från <li> */
+    padding: 0;
 }
 
+.panel {
+    flex: 1 1 300px;    /* Växer, krymper och är ca 300px breda */
+    max-width: 400px;   /* Förhindrar att de blir för breda på stora skärmar */
+    padding: 20px;
+    border-left: 5px solid #3498db;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    
+    /* För att innehållet i panelen ska se bra ut */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
 .panel-positive {
     background-color: var(--background-positive-color);
     border-left-color: var(--positive-color);
