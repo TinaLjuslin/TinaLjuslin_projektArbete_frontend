@@ -13,23 +13,35 @@
         rel='stylesheet'>
     <link rel='icon' type='image/jpg' href='img/KoncernLoggaWhite.png'>
 </head>
-       
+
 
 <body>
     <button id="menu-toggle" class="menu-btn" aria-label="Öppna meny">
-    ☰ </button>
-    
+        ☰ </button>
+
     <div class='wrapper'>
         <nav class='sidebar'>
-                <div id="logo-container"><img id='sidebar-logo' src='img/KoncernLoggaSidebar.png'></div>   
-             
-                <ul id="main-menu">
-            </ul>
+            <div id="logo-container"><img id='sidebar-logo' src='img/KoncernLoggaSidebar.png'></div>
+            <ul id="main-menu"></ul>
         </nav>
-        
+
         <main id='content-area' tabindex='-1' style='outline: none;'>
         </main>
-        
+
+        <aside class="right-sidebar ">
+            <div class="sidebar-widget">
+                <h3>Hitta hit</h3>
+                <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1799.2230698891026!2d14.497055994370369!3d63.19511541666451!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x466fb63f4d48d037%3A0xdb8692e70d8ae87b!2s%C3%85re%20%C3%96stersund%20Airport!5e0!3m2!1ssv!2sse!4v1779180086267!5m2!1ssv!2sse" loading="lazy"></iframe>
+            </div>
+            <hr>
+            <div class="sidebar-widget">
+                <h3>Väderprognos</h3>
+                <p>Aktuellt väder i Åkersjön:</p>
+                <a href="https://www.smhi.se/vader/prognoser-och-varningar/vaderprognos/q/Krokom/%C3%85kersj%C3%B6n/2727228"
+                    target="_blank" class="weather-button">Se väder på SMHI</a>
+            </div>
+        </aside>
+
     </div>
     <script src='script.js'></script>
 </body>

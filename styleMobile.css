@@ -1,78 +1,114 @@
-/* Denna kod körs bara på mobilen (tack vare din media-länk i HTML) */
-
-.sidebar {
-    left: -250px; /* Flytta ut hela sidebaren till vänster */
-    transition: 0.3s; /* Gör att den glider snyggt */
-    z-index: 9999; /* Se till att den ligger över allt annat */
-}
-
-/* När vi lägger till denna klass med JS, glider menyn in */
-.sidebar.mobile-open {
-    left: 0;
-}
-
-/* Stylingen för själva hamburgarknappen */
-.menu-btn {
-    position: fixed;
-    top: 15px;
-    right: 15px; /* Eller left: 15px om du föredrar det */
-    z-index: 10000;
-    background-color: var(--wigell-color);
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    font-size: 1.5rem;
-    cursor: pointer;
-    border-radius: 5px;
-}
-
-/* VIKTIGT: På mobilen kan inte main-ytan ha margin-left! */
-#content-area {
-    margin-left: 0 !important;
-    padding-top: 60px; /* Ge plats så att knappen inte täcker rubriker */
-}
-    h1 {
-        font-size: 1.8rem;
+/********************************************************
+    RESPONSIV DESIGN (SAMMANFOGAD MOBIL-MEDIA QUERY)
+*********************************************************/
+    
+    /* --- BAS & LAYOUT --- */
+    body, html {
+        overflow-x: hidden; 
+        width: 100%;
     }
 
-    h2 {
+    .wrapper {
+        flex-direction: column;
+    }
+
+    /* --- SIDEBAR SLIDE-IN FLÖDE --- */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: -250px; /* Flytta ut hela sidebaren till vänster */
+        width: 250px;
+        height: 100vh;
+        transition: left 0.3s ease; /* Glider snyggt */
+        z-index: 9999; /* Ligger över allt utom hamburgarknappen */
+    }
+ .right-sidebar {
+        position: relative; /* Släpp det fixerade läget helt! */
+        top: auto;
+        right: auto;
+        left: auto;         /* Säkerställ att left inte stör den vänstra menyn */
+        
+        width: 100%;        /* Ta upp hela skärmbredden i botten */
+        height: auto;       /* Låt den bli så hög som innehållet kräver */
+        
+        padding: 30px 20px;
+        box-sizing: border-box;
+        
+        border-left: none;
+        border-top: 2px solid #ddd; /* Lägg strecket överst istället */
+        background-color: var(--background-main-color); /* Matcha resten av bakgrunden */
+        z-index: 1;         /* Låg z-index så den inte krockar med hamburgaren */
+    }
+    /* När klassen läggs på via JavaScript glider menyn in */
+    .sidebar.mobile-open {
+        left: 0;
+    }
+
+    /* Hamburgarknappens design */
+    .menu-btn {
+        display: block; /* Säkerställ att den syns på mobilen */
+        position: fixed;
+        top: 15px;
+        right: 15px;
+        z-index: 10000;
+        background-color: var(--wigell-color);
+        color: white;
+        border: none;
+        padding: 10px 15px;
         font-size: 1.5rem;
+        cursor: pointer;
+        border-radius: 5px;
     }
 
-    h3 {
-        font-size: 1.3rem;
+    /* Huvudinnehållet anpassas för att inte ligga under sidebaren */
+    main {
+        margin-left: 0 !important;
+        width: 100%;
+        padding: 0;
+    }
+
+    #content-area {
+        margin-left: 0 !important;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 80px 15px 20px 15px; /* Ger utrymme för hamburgarknappen överst */
+    }
+
+    /* --- TEXT & KNAPPAR --- */
+    h1 { font-size: 1.8rem; }
+    h2 { font-size: 1.5rem; }
+    h3 { font-size: 1.3rem; }
+
+    .btn {
+        width: 100%; /* Knappar blir stora och lätta att trycka på med tummen */
+        margin-bottom: 10px;
+        box-sizing: border-box;
+    }
+
+    /* --- BILD-PANELER / KORT --- */
+    .cars-grid {
+        grid-template-columns: 1fr; /* Ett kort per rad */
+        gap: 15px;
     }
 
     .panel {
-        flex-direction: column;
-        /* Staplar text och knapp på varandra */
         align-items: flex-start;
-        /* Håller texten till vänster */
     }
 
     .panel button {
         width: 100%;
-        /* Gör knappen bred och lätt att klicka på i mobilen */
         margin-left: 0;
-        /* Ta bort marginalen från webb-läget */
         margin-top: 15px;
-        /* Skapa lite luft mellan text och knapp */
     }
 
-    .modal-content {
-        width: 90%;
-        /* Gör att modalen tar upp nästan hela bredden på små skärmar */
+    /* --- MODALER --- */
+    .modal-content.text-alert {
+        width: 95%;
         padding: 20px;
-        /* Lite mindre padding så texten får plats */
+        box-sizing: border-box;
     }
 
-    .container {
-        max-width: 100%;
-        /* Låt den ta upp hela bredden på mobilen */
-        padding: 10px;
-        /* Lite mindre luft på sidorna för att spara plats */
-    }
-
+    /* --- TEXTRUTOR & KODBLOCK --- */
     .table-container,
     .code-container {
         width: 100%;
@@ -86,70 +122,61 @@
         font-size: 0.8rem;
     }
 
-
-    .btn {
-        margin-bottom: 10px;
-    }
-    /* Säkerställ att ingenting sticker ut utanför skärmens bredd */
-body, html {
-    overflow-x: hidden; 
-    width: 100%;
-}
-
-#content-area {
-    margin-left: 0 !important;
-    width: 100%;
-    box-sizing: border-box; /* Räknar in padding i bredden */
-    padding: 70px 15px 20px 15px; /* Mer luft på sidorna */
-}
-
-/* Tabell-fixen */
-.table-container {
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    overflow-x: auto; /* Gör tabellen scrollbar i sidled om den är för bred */
-    display: block; /* Krävs för att overflow-x ska funka på vissa element */
-}
-
-table {
-    width: 100% !important;
-    min-width: 0 !important; /* Ta bort eventuella fasta bredder */
-    margin: 0;
-}
-@media screen and (max-width: 768px) {
-    /* Tvinga tabellen att inte bete sig som en tabell */
-    .table-rows, .table-rows thead, .table-rows tbody, .table-rows th, .table-rows td, .table-rows tr {
+    /* --- TABELL-OMVANDLING (PROFFS-LOGIK) --- */
+    /* Tvingar tabellen att bete sig som en staplad lista */
+    .table-rows, 
+    .table-rows thead, 
+    .table-rows tbody, 
+    .table-rows th, 
+    .table-rows td, 
+    .table-rows tr {
         display: block;
     }
 
-    /* Göm tabellhuvudet (vi lägger till labels istället) */
+    /* Göm det vanliga tabellhuvudet helt utom synhåll */
     .table-rows thead tr {
         position: absolute;
         top: -9999px;
         left: -9999px;
     }
 
+    /* Varje rad blir som ett eget litet fristående kort */
     .table-rows tr {
         border: 1px solid #ccc;
-        margin-bottom: 10px;
+        margin-bottom: 15px;
         background: #fff;
         border-radius: 8px;
         padding: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
 
+    /* Varje cell blir en rad i kortet */
     .table-rows td {
         border: none;
         border-bottom: 1px solid #eee;
         position: relative;
-        padding-left: 50%; /* Skapa plats för "label" */
-        text-align: right;
-        min-height: 30px;
+        padding-left: 50%; /* Reservera vänstra halvan till etiketten */
+        text-align: right;  /* Tryck datan till höger */
+        min-height: 35px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        box-sizing: border-box;
     }
 
-    /* Här kan man lägga till text innan innehållet om man vill vara avancerad, 
-       men enklast är att bara köra vanlig display:block */
     .table-rows td:last-child {
-        border-bottom: 0;
+        border-bottom: 0; /* Ta bort sista strecket i kortet */
+    }
+
+    /* MAGIN: Generera etiketter på vänstersidan automatiskt via HTML-attribut */
+    .table-rows td::before {
+        content: attr(data-label); /* Hämtar texten från data-label="" i din HTML */
+        position: absolute;
+        left: 10px;
+        width: 45%;
+        padding-right: 10px;
+        text-align: left;
+        font-weight: bold;
+        color: var(--wigell-color);
     }
 }

@@ -1,7 +1,7 @@
 /*
 Får jag tillbaka carId så jag kan visa bara den bilen och inte listan
-
-
+avbryt eller gå tillbaka om man klickat på bil
+om man är inloggad som user och klickar på tillbaka till listan efter att ha uppdaterat sin profil så får man se listan, det ska man INTE!
  */
 
 /* ==========================================================================
@@ -13,7 +13,7 @@ const menuItems = [
     { name: 'Bokning', view: 'view-booking', roles: ['USER', 'ADMIN'] },
     { name: 'Bilar', view: 'view-cars', roles: ['USER', 'ADMIN', 'GUEST'] },
     { name: 'Ny bil', view: 'view-car-new', roles: ['ADMIN'] },
-    { name: 'Visa användare', view: 'view-user-get-all', roles: ['ADMIN'] },
+    { name: 'Visa användare', view: 'view-users', roles: ['ADMIN'] },
     { name: 'Ny användare', view: 'view-user-new', roles: ['ADMIN'] },
     { name: 'Logga in', view: 'view-login', roles: ['GUEST'] },
     { name: 'Ny användare', view: 'view-user-new', roles: ['GUEST'] },
@@ -251,7 +251,7 @@ function showPage(viewId) {
         case 'view-car-new':
             renderNewCarView();
             break;
-        case 'view-user-get-all':
+        case 'view-users':
             content.innerHTML = `<h1>Användarlista</h1>`;
             fetchUsers().then(users => renderUserTable(users));
             break;
@@ -340,41 +340,98 @@ function renderNewUserView() {
     });
 
 }
-
 async function renderCarList() {
     console.log('!!!!!! renderCarList !!!!!!');
     const content = document.getElementById('content-area');
+    
+    // 1. Hämta bilarna från API
     const cars = await fetchCars();
 
-    if (cars && cars.length > 0) {
-        content.innerHTML = '<ul id="car-list"></ul>';
-        const listElement = document.getElementById('car-list');
-
-        cars.forEach(car => {
-            const li = document.createElement('li');
-            const panel = document.createElement('div');
-            panel.classList.add('panel');
-
-            const imageSrc = car.image ? `data:image/webp;base64,${car.image}` : 'img/default.jpg';
-
-            panel.innerHTML = `
-                <div class='panel-img-container'>
-                    <img src="${imageSrc}" alt="${car.name} ${car.model}" class="car-image">
-                </div>
-                <div class='panel-text-content'>
-                    <h4>${car.name} ${car.model}</h4>
-                    <p>Pris: ${car.price} kr/dag</p>
-                </div>
-            `;
-            panel.addEventListener('click', () => {
-                renderCarDetails(car.id);
-            });
-            li.appendChild(panel);
-            listElement.appendChild(li);
-        });
-    } else {
+    if (!cars || cars.length === 0) {
         content.innerHTML = '<p>Inga bilar hittades.</p>';
+        return;
     }
+
+    // 2. Skapa bas-strukturen för sidan med sorterings-dropdownen
+    content.innerHTML = `
+        <div class="filter-bar">
+            <label for="car-sort">Sortera bilar efter:</label>
+            <select id="car-sort" class="form-control">
+                <option value="default">Välj...</option>
+                <option value="name">Namn (A-Ö)</option>
+                <option value="type">Typ / Kategori</option>
+            </select>
+        </div>
+        <ul id="car-list" class="cars-grid"></ul>
+    `;
+
+    // 3. Rita ut bilarna för första gången
+    renderCarCards(cars);
+
+    // 4. Koppla lyssnare till sorteringen
+    document.getElementById('car-sort').addEventListener('change', (e) => {
+        const sortBy = e.target.value;
+        
+        // Skapa en kopia av arrayen för att inte mutera originalet direkt
+        let sortedCars = [...cars]; 
+
+        if (sortBy === 'name') {
+            sortedCars.sort((a, b) => a.name.localeCompare(b.name));
+        } else if (sortBy === 'type') {
+            sortedCars.sort((a, b) => a.type.localeCompare(b.type));
+        }
+
+        // Rendera om korten med den nya, sorterade ordningen!
+        renderCarCards(sortedCars);
+    });
+}
+
+// Hjälpfunktion som bara fokuserar på att rita ut själva korten
+function renderCarCards(carsArray) {
+    const listElement = document.getElementById('car-list');
+    if (!listElement) return;
+    
+    // Töm listan innan vi ritar de nya (viktigt vid om-sortering!)
+    listElement.innerHTML = ''; 
+
+    carsArray.forEach(car => {
+        const li = document.createElement('li');
+        const panel = document.createElement('div');
+        panel.classList.add('panel');
+        
+        // WCAG AA-tips: Gör panelen tillgänglig via tangentbordet eftersom den är klickbar
+        panel.setAttribute('tabindex', '0');
+        panel.setAttribute('role', 'button');
+        panel.setAttribute('aria-label', `Visa detaljer för ${car.name} ${car.model}`);
+
+        const imageSrc = car.image ? `data:image/webp;base64,${car.image}` : 'img/default.jpg';
+
+        // Här bygger vi insidan av panelen med ren HTML-mall
+        panel.innerHTML = `
+            <div class='panel-img-container'>
+                <img src="${imageSrc}" alt="" class="car-image"> 
+            </div>
+            <div class='panel-text-content'>
+                <p><b>${car.name}</b> ${car.model}, Typ: ${car.type || 'Okänd'}, Pris: ${car.price} kr/dag</p>
+            </div>
+        `;
+
+        // Koppla klickhändelsen till det faktiska DOM-elementet
+        panel.addEventListener('click', () => {
+            renderCarDetails(car.id);
+        });
+
+        // Gör så att det går att trycka på Enter/Space för att öppna (Strikt WCAG-krav för VG!)
+        panel.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                renderCarDetails(car.id);
+            }
+        });
+
+        li.appendChild(panel);
+        listElement.appendChild(li);
+    });
 }
 
 async function renderCarDetails(carId) {
@@ -392,27 +449,31 @@ async function renderCarDetails(carId) {
         <p><strong>Pris:</strong> ${car.price} kr</p>
         <p><strong>Typ:</strong> ${car.type}</p>
         <p>${car.feature1 || ''}, ${car.feature2 || ''}, ${car.feature3 || ''}</p>
+        <div class="actions-container">
+            <button id="btn-cancel" class="btn-standard btn">Tillbaka till listan</button>    
     `;
 
     if (userRole === 'GUEST') {
-        html += `<p>Logga in eller skapa konto för att kunna boka bil.</p>`;
+        html += `
+            <p>Logga in eller skapa konto för att kunna boka bil.</p>
+        </div>`;
     } else if (userRole === 'USER') {
         html += `
-            <div class="actions-container">
-                <button id="btn-book-car" class="btn-standard btn">Boka bil</button>
-            </div>
+            
+            <button id="btn-book-car" class="btn-standard btn">Boka bil</button>
+        </div>
         `;
     } else if (userRole === 'ADMIN') {
         html += `
-            <div class="actions-container">
-                <button id="btn-update-car" class="btn-standard btn">Uppdatera info</button>
-                <button id="btn-delete-car" class="btn-negative btn">Ta bort bil</button>
-            </div>
+            
+            <button id="btn-update-car" class="btn-standard btn">Uppdatera info</button>
+            <button id="btn-delete-car" class="btn-negative btn">Ta bort bil</button>
+        </div>
         `;
     }
 
     content.innerHTML = html;
-
+    document.getElementById('btn-cancel').addEventListener('click', () => showPage('view-cars'));
     // Koppla lyssnare baserat på roll
     if (userRole === 'USER') {
         document.getElementById('btn-book-car').addEventListener('click', () => handleBookCarSubmit(carId));
@@ -421,7 +482,10 @@ async function renderCarDetails(carId) {
         document.getElementById('btn-update-car').addEventListener('click', () => renderUpdateCarForm(carId));
         document.getElementById('btn-delete-car').addEventListener('click', () => renderDeleteCarConfirm(carId));
     }
-}
+}// Håller reda på nuvarande sorteringstatus utanför funktionen
+let currentUserSortColumn = '';
+let isUserSortAscending = true;
+
 function renderUserTable(users) {
     console.log('!!!!!! renderUserTable !!!!!!');
     const content = document.getElementById('content-area');
@@ -431,48 +495,107 @@ function renderUserTable(users) {
         return;
     }
 
-    // 1. Skapa själva tabell-elementet
     const table = document.createElement('table');
     table.classList.add('table-rows');
 
-    // 2. Skapa thead (rubrikerna) med vanlig innerHTML eftersom den är statisk
+    // 1. Skapa thead och lägg till interaktiva rubriker
     const thead = document.createElement('thead');
+    
+    // Vi skapar en hjälpfunktion för att rita pilarna (▲ / ▼ / ↕)
+    const getIcon = (col) => {
+        if (currentUserSortColumn !== col) return '↕';
+        return isUserSortAscending ? '▲' : '▼';
+    };
+
     thead.innerHTML = `
         <tr>
-            <th>Id</th>
-            <th>Namn</th>
-            <th>Username</th>
+            <th class="sortable-th" data-column="id" role="columnheader" tabindex="0" aria-sort="${currentUserSortColumn === 'id' ? (isUserSortAscending ? 'ascending' : 'descending') : 'none'}">
+                Id <span class="sort-icon">${getIcon('id')}</span>
+            </th>
+            <th class="sortable-th" data-column="name" role="columnheader" tabindex="0" aria-sort="${currentUserSortColumn === 'name' ? (isUserSortAscending ? 'ascending' : 'descending') : 'none'}">
+                Namn <span class="sort-icon">${getIcon('name')}</span>
+            </th>
+            <th class="sortable-th" data-column="username" role="columnheader" tabindex="0" aria-sort="${currentUserSortColumn === 'username' ? (isUserSortAscending ? 'ascending' : 'descending') : 'none'}">
+                Username <span class="sort-icon">${getIcon('username')}</span>
+            </th>
         </tr>
     `;
     table.appendChild(thead);
 
-    // 3. Skapa tbody där raderna ska bo
+    // 2. Skapa tbody och fyll med data (Glöm inte data-label för mobilen!)
     const tbody = document.createElement('tbody');
 
-    // 4. Loopa igenom användarna och skapa raderna som riktiga element
     users.forEach(user => {
         const tr = document.createElement('tr');
         tr.classList.add('clickable-row');
 
+        // Vi lägger till data-label så att din mobil-CSS fungerar klockrent här med!
         tr.innerHTML = `
-            <td>${user.id}</td>
-            <td>${user.firstName} ${user.lastName}</td>
-            <td>${user.username}</td>
+            <td data-label="Id:">${user.id}</td>
+            <td data-label="Namn:">${user.firstName} ${user.lastName}</td>
+            <td data-label="Username:">${user.username}</td>
         `;
 
-        // Nu fungerar addeventlistener perfekt eftersom tr är ett riktigt element!
         tr.addEventListener('click', () => renderUserProfile(user.id));
-
-        // Lägg till raden i vår tbody
         tbody.appendChild(tr);
     });
 
-    // 5. Sätt ihop allt: lägg till tbody i tabellen
     table.appendChild(tbody);
 
-    // 6. Töm content-area och tryck ut vår färdiga tabell i DOM:en
+    // 3. Töm och tryck ut tabellen i DOM:en
     content.innerHTML = '';
     content.appendChild(table);
+
+    // 4. KOPPLA SORTERINGSLYSSNARE (Nu när bitarna ligger i DOM:en)
+    const headers = thead.querySelectorAll('.sortable-th');
+    headers.forEach(th => {
+        
+        // Funktion som kör själva sorteringen
+        const handleSort = () => {
+            const column = th.getAttribute('data-column');
+
+            if (currentUserSortColumn === column) {
+                isUserSortAscending = !isUserSortAscending; // Vänd ordning om vi klickar igen
+            } else {
+                currentUserSortColumn = column;
+                isUserSortAscending = true; // Ny kolumn börjar alltid som ASC
+            }
+
+            // Sortera arrayen dynamiskt
+            users.sort((a, b) => {
+                let valA, valB;
+
+                if (column === 'id') {
+                    valA = a.id;
+                    valB = b.id;
+                    return isUserSortAscending ? valA - valB : valB - valA;
+                } else if (column === 'name') {
+                    // Slå ihop för- och efternamn för en rättvis bokstavssortering
+                    valA = `${a.firstName} ${a.lastName}`.toLowerCase();
+                    valB = `${b.firstName} ${b.lastName}`.toLowerCase();
+                } else {
+                    valA = a[column].toLowerCase();
+                    valB = b[column].toLowerCase();
+                }
+
+                return isUserSortAscending ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            });
+
+            // Rendera om hela tabellen med den nya sorterade datan!
+            renderUserTable(users);
+        };
+
+        // Klicklyssnare för musen
+        th.addEventListener('click', handleSort);
+
+        // Keydown-lyssnare för tangentbordet (Tryck Enter för att sortera - Strikt WCAG-krav!)
+        th.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleSort();
+            }
+        });
+    });
 }
 async function renderUserProfile(userId) {
     console.log('!!!!!! renderUserProfile !!!!!!');
@@ -490,18 +613,22 @@ async function renderUserProfile(userId) {
                 <p><strong>Telefon:</strong> ${user.phone}</p>
                 <p><strong>Antal bokningar:</strong> ${user.noOfOrders}</p>
             </div>
+            
     `;
 
     // Villkor för knappar (Om det inte är ens eget konto)
     if (sessionStorage.getItem('userId') != userId) {
         html += `
-                <button class="btn-standard" onclick="showPage('view-user-get-all')">Tillbaka till listan</button>    
+            <div>
+                <button class="btn-standard" onclick="showPage('view-users')">Tillbaka</button>        
                 <button class="btn-standard" onclick="renderUpdateUserForm(${user.id})">Uppdatera användare</button>
                 <button class="btn-standard" onclick="renderDeleteUserConfirm(${user.id})">Ta bort användare</button>
             </div>
         `;
     } else {
         html += `
+            <div>
+                <button class="btn-standard" onclick="showPage('view-introduction')">Tillbaka</button>        
                 <button class="btn-standard" onclick="renderUpdateUserForm(${user.id})">Uppdatera användare</button>
             </div>
         `;
@@ -562,7 +689,7 @@ async function renderUpdateUserForm(userId) {
             if (sessionStorage.getItem('userId') == userId) {
                 showPage('view-profile');
             } else {
-                showPage('view-user-get-all');
+                showPage('view-users');
             }
         });
 
@@ -813,7 +940,7 @@ async function handleCreateUserSubmit() {
             showPage('view-introduction');
         } else if (sessionStorage.getItem('userRole') === 'ADMIN') {
             customAlert("Ny användare skapad av admin!", 'positive');
-            showPage('view-user-get-all');
+            showPage('view-users');
         }
     } else {
         errorMsg.textContent = 'Kunde inte skapa konto, email kan vara upptaget.';
@@ -857,7 +984,7 @@ async function handleUpdateUserSubmit() {
     if (response && response.ok) {
         if (sessionStorage.getItem('userRole') === 'ADMIN') {
             customAlert('Användare uppdaterad framgångsrikt!', 'positive');
-            showPage('view-user-get-all');
+            showPage('view-users');
         } else if (sessionStorage.getItem('userId') == userId) {
             if (sessionStorage.getItem('email') === email) {
                 await apiSaveSessionUserData(userId);
@@ -889,7 +1016,7 @@ async function handleDeleteUserSubmit(userId) {
     // Hantera resultatet på skärmen
     if (response && response.ok) {
         customAlert(`Användare med id ${userId} borttagen ur databasen.`, 'positive');
-        showPage('view-user-get-all');
+        showPage('view-users');
     } else {
         customAlert("Kunde inte ta bort användaren.", 'negative');
     }
