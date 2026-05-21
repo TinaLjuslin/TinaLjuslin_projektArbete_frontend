@@ -3,17 +3,17 @@ Får jag tillbaka carId så jag kan visa bara den bilen och inte listan
 avbryt eller gå tillbaka om man klickat på bil
 om man är inloggad som user och klickar på tillbaka till listan efter att ha uppdaterat sin profil så får man se listan, det ska man INTE!
  */
-
+const urlLogin = 'http://localhost:8080/api/v1/auth/login';
+const urlCars = 'http://localhost:8080/api/v1/cars';
+const urlUsers = 'http://localhost:8080/api/v1/users';
 /* ==========================================================================
    CONFIG & MENU DEFINITIONS
    ========================================================================== */
 
 const menuItems = [
-    { name: 'Hem', view: 'view-introduction', roles: ['USER', 'ADMIN'] },
-    { name: 'Bokning', view: 'view-booking', roles: ['USER', 'ADMIN'] },
     { name: 'Bilar', view: 'view-cars', roles: ['USER', 'ADMIN', 'GUEST'] },
     { name: 'Ny bil', view: 'view-car-new', roles: ['ADMIN'] },
-    { name: 'Visa användare', view: 'view-users', roles: ['ADMIN'] },
+    { name: 'Användare', view: 'view-users', roles: ['ADMIN'] },
     { name: 'Ny användare', view: 'view-user-new', roles: ['ADMIN'] },
     { name: 'Logga in', view: 'view-login', roles: ['GUEST'] },
     { name: 'Ny användare', view: 'view-user-new', roles: ['GUEST'] },
@@ -25,10 +25,10 @@ const menuItems = [
    1. API / FETCH FUNCTIONS (Enbart kommunikation med din Spring Boot backend)
    ========================================================================== */
 
-async function fetchCars() {
-    console.log('!!!!!! fetchCars !!!!!!');
+async function apiGetCars() {
+    console.log('!!!!!! apiGetCars !!!!!!');
     try {
-        const response = await fetch('http://localhost:8080/api/v1/cars', {
+        const response = await fetch(`${urlCars}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
@@ -40,10 +40,10 @@ async function fetchCars() {
     }
 }
 
-async function fetchCarById(carId) {
-    console.log(`!!!!!! fetchCarById(${carId}) !!!!!!`);
+async function apiGetCarById(carId) {
+    console.log(`!!!!!! apiGetCarById(${carId}) !!!!!!`);
     try {
-        const response = await fetch(`http://localhost:8080/api/v1/cars/${carId}`, {
+        const response = await fetch(`${urlCars}/${carId}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
@@ -60,10 +60,10 @@ async function fetchCarById(carId) {
     }
 }
 
-async function fetchUsers() {
-    console.log('!!!!!! fetchUsers !!!!!!');
+async function apiGetUsers() {
+    console.log('!!!!!! apiGetUsers !!!!!!');
     try {
-        const response = await fetch('http://localhost:8080/api/v1/users', {
+        const response = await fetch(`${urlUsers}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
@@ -75,10 +75,10 @@ async function fetchUsers() {
     }
 }
 
-async function fetchUserById(userId) {
-    console.log(`!!!!!! fetchUserById(${userId}) !!!!!!`);
+async function apiGetUserById(userId) {
+    console.log(`!!!!!! apiGetUserById(${userId}) !!!!!!`);
     try {
-        const response = await fetch(`http://localhost:8080/api/v1/users/${userId}`, {
+        const response = await fetch(`${urlUsers}/${userId}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
@@ -90,21 +90,10 @@ async function fetchUserById(userId) {
     }
 }
 
-async function apiSaveSessionUserData(userId) {
-    console.log('!!!!!! apiSaveSessionUserData !!!!!!');
-    const user = await fetchUserById(userId);
-    if (user) {
-        sessionStorage.setItem('firstName', user.firstName);
-        sessionStorage.setItem('lastName', user.lastName);
-        sessionStorage.setItem('phone', user.phone);
-        sessionStorage.setItem('email', user.email);
-        sessionStorage.setItem('noOfOrders', user.noOfOrders);
-    }
-}
 async function apiLogin(username, password) {
     console.log('!!!!!! apiLogin !!!!!!');
     try {
-        const response = await fetch('http://localhost:8080/api/v1/auth/login', {
+        const response = await fetch(`${urlLogin}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
@@ -118,7 +107,7 @@ async function apiLogin(username, password) {
 async function apiCreateUser(userData) {
     console.log('!!!!!! apiCreateUser !!!!!!');
     try {
-        const response = await fetch('http://localhost:8080/api/v1/users', {
+        const response = await fetch(`${urlUsers}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(userData)
@@ -132,7 +121,7 @@ async function apiCreateUser(userData) {
 async function apiUpdateUser(userId, userData) {
     console.log(`!!!!!! apiUpdateUser(${userId}) !!!!!!`);
     try {
-        const response = await fetch(`http://localhost:8080/api/v1/users/${userId}`, {
+        const response = await fetch(`${urlUsers}/${userId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(userData),
@@ -148,7 +137,7 @@ async function apiUpdateUser(userId, userData) {
 async function apiUpdateCar(carId, carData) {
     console.log(`!!!!!! apiUpdateCar(${carId}) !!!!!!`);
     try {
-        const response = await fetch(`http://localhost:8080/api/v1/cars/${carId}`, {
+        const response = await fetch(`${urlCars}/${carId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(carData),
@@ -162,7 +151,7 @@ async function apiUpdateCar(carId, carData) {
 }
 async function apiDeleteUser(userId) {
     try {
-        const response = await fetch(`http://localhost:8080/api/v1/users/${userId}`, {
+        const response = await fetch(`${urlUsers}/${userId}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
@@ -177,7 +166,7 @@ async function apiDeleteUser(userId) {
 async function apiCreateCar(formData) {
     console.log('!!!!!! apiCreateCar !!!!!!');
     try {
-        const response = await fetch('http://localhost:8080/api/v1/cars', {
+        const response = await fetch(`${urlCars}`, {
             method: 'POST',
             credentials: 'include',
             body: formData // Skickar med paketet den fick
@@ -191,7 +180,7 @@ async function apiCreateCar(formData) {
 
 async function apiDeleteCar(carId) {
     try {
-        const response = await fetch(`http://localhost:8080/api/v1/cars/${carId}`, {
+        const response = await fetch(`${urlCars}/${carId}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include'
@@ -201,6 +190,90 @@ async function apiDeleteCar(carId) {
         console.error("Nätverksfel:", error);
     }
 }
+/* ==========================================================================
+   2. UTILITIES
+   ========================================================================== */
+
+async function updateUserSession(userId) {
+    console.log('!!!!!! updateUserSession !!!!!!');
+    const user = await apiGetUserById(userId);
+    if (user) {
+        sessionStorage.setItem('firstName', user.firstName);
+        sessionStorage.setItem('lastName', user.lastName);
+        sessionStorage.setItem('phone', user.phone);
+        sessionStorage.setItem('email', user.email);
+        sessionStorage.setItem('noOfOrders', user.noOfOrders);
+    }
+}
+function customAlert(message, type = 'positive') {
+    console.log(`!!!!!! customAlert modal: ${message} (${type}) !!!!!!`);
+
+    // 1. Skapa overlay (mörka/suddiga bakgrunden)
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay show'; // Vi ger den 'show' direkt så den tonar in
+
+    // Bestäm färg på OK-knappen baserat på om det är ett fel (negative) eller framgång (positive)
+    const btnClass = type === 'negative' ? 'btn-negative' : 'btn-positive';
+
+    // 2. Bygg strukturen för modalen inuti overlayen
+    overlay.innerHTML = `
+        <div class="modal-content text-alert">
+            <div class="alert-icon-wrapper ${type}">
+                ${type === 'positive' ? '✓' : '✕'}
+            </div>
+            <p class="modal-message">${message}</p>
+            <div class="modal-buttons">
+                <button class="btn ${btnClass}" id="custom-alert-ok-btn">OK</button>
+            </div>
+        </div>
+    `;
+
+    // 3. Tryck ut den på skärmen (längst ner i body)
+    document.body.appendChild(overlay);
+
+    // 4. Gör så att OK-knappen stänger och raderar modalen helt ur DOM:en
+    document.getElementById('custom-alert-ok-btn').onclick = function () {
+        overlay.classList.remove('show'); // Starta uttoningsanimationen
+        setTimeout(() => overlay.remove(), 300); // Ta bort från HTML när animationen är klar
+    };
+}
+// ÄNDRAT HÄR: Vi tar emot 'onConfirm' som ett argument
+function customConfirm(message, onConfirm) {
+    console.log(`!!!!!! customConfirm modal: ${message} !!!!!!`);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay show';
+
+    overlay.innerHTML = `
+        <div class="modal-content text-alert">
+            <div class="alert-icon-wrapper warning">⚠️</div>
+            <p class="modal-message">${message}</p>
+            <div class="modal-buttons" style="gap: 15px;">
+                <button class="btn btn-standard" id="custom-confirm-cancel-btn">Avbryt</button>
+                <button class="btn btn-negative" id="custom-confirm-ok-btn">Ja, ta bort</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Om användaren klickar på "Ja, ta bort"
+    document.getElementById('custom-confirm-ok-btn').onclick = function () {
+        overlay.classList.remove('show');
+        overlay.remove();
+
+        if (typeof onConfirm === 'function') {
+            onConfirm();
+        }
+    };
+
+    // Om användaren klickar på Avbryt
+    document.getElementById('custom-confirm-cancel-btn').onclick = function () {
+        overlay.classList.remove('show');
+        setTimeout(() => overlay.remove(), 300);
+    };
+}
+
 /* ==========================================================================
    2. RENDER FUNCTIONS (Bygger HTML och ritar ut på skärmen)
    ========================================================================== */
@@ -239,12 +312,6 @@ function showPage(viewId) {
         case 'view-login':
             renderLoginView();
             return;
-        case 'view-introduction':
-            content.innerHTML = `<h1>Hej ${sessionStorage.getItem('firstName')}! Användare med id: ${sessionStorage.getItem('userId')}</h1>`;
-            break;
-        case 'view-booking':
-            content.innerHTML = `<h1>view-booking</h1>`;
-            break;
         case 'view-cars':
             renderCarList();
             break;
@@ -253,7 +320,7 @@ function showPage(viewId) {
             break;
         case 'view-users':
             content.innerHTML = `<h1>Användarlista</h1>`;
-            fetchUsers().then(users => renderUserTable(users));
+            apiGetUsers().then(users => renderUserTable(users));
             break;
         case 'view-user-new':
             renderNewUserView();
@@ -336,16 +403,16 @@ function renderNewUserView() {
     };
 
     document.getElementById('btn-cancel').addEventListener('click', () => {
-        showPage('view-introduction');
+        showPage('view-cars');
     });
 
 }
 async function renderCarList() {
     console.log('!!!!!! renderCarList !!!!!!');
     const content = document.getElementById('content-area');
-    
+
     // 1. Hämta bilarna från API
-    const cars = await fetchCars();
+    const cars = await apiGetCars();
 
     if (!cars || cars.length === 0) {
         content.innerHTML = '<p>Inga bilar hittades.</p>';
@@ -354,6 +421,7 @@ async function renderCarList() {
 
     // 2. Skapa bas-strukturen för sidan med sorterings-dropdownen
     content.innerHTML = `
+        <p>Rödmarkerade bilar är redan uthyrda, gröna är lediga för bokning.</p>    
         <div class="filter-bar">
             <label for="car-sort">Sortera bilar efter:</label>
             <select id="car-sort" class="form-control">
@@ -361,6 +429,7 @@ async function renderCarList() {
                 <option value="name">Namn (A-Ö)</option>
                 <option value="type">Typ / Kategori</option>
             </select>
+            
         </div>
         <ul id="car-list" class="cars-grid"></ul>
     `;
@@ -371,9 +440,9 @@ async function renderCarList() {
     // 4. Koppla lyssnare till sorteringen
     document.getElementById('car-sort').addEventListener('change', (e) => {
         const sortBy = e.target.value;
-        
+
         // Skapa en kopia av arrayen för att inte mutera originalet direkt
-        let sortedCars = [...cars]; 
+        let sortedCars = [...cars];
 
         if (sortBy === 'name') {
             sortedCars.sort((a, b) => a.name.localeCompare(b.name));
@@ -390,21 +459,25 @@ async function renderCarList() {
 function renderCarCards(carsArray) {
     const listElement = document.getElementById('car-list');
     if (!listElement) return;
-    
+
     // Töm listan innan vi ritar de nya (viktigt vid om-sortering!)
-    listElement.innerHTML = ''; 
+    listElement.innerHTML = '';
 
     carsArray.forEach(car => {
         const li = document.createElement('li');
         const panel = document.createElement('div');
         panel.classList.add('panel');
-        
+
         // WCAG AA-tips: Gör panelen tillgänglig via tangentbordet eftersom den är klickbar
         panel.setAttribute('tabindex', '0');
         panel.setAttribute('role', 'button');
         panel.setAttribute('aria-label', `Visa detaljer för ${car.name} ${car.model}`);
-
-        const imageSrc = car.image ? `data:image/webp;base64,${car.image}` : 'img/default.jpg';
+        if (car.booked == true) {
+            panel.classList.add('panel-negative');
+        } else {
+            panel.classList.add('panel-positive');
+        }
+        const imageSrc = car.image ? `data:image/webp;base64,${car.image}` : 'img/default.png';
 
         // Här bygger vi insidan av panelen med ren HTML-mall
         panel.innerHTML = `
@@ -436,13 +509,13 @@ function renderCarCards(carsArray) {
 
 async function renderCarDetails(carId) {
     console.log('!!!!!! renderCarDetails !!!!!!');
-    const car = await fetchCarById(carId);
+    const car = await apiGetCarById(carId);
     if (!car) return;
 
     const content = document.getElementById('content-area');
     const userRole = sessionStorage.getItem('userRole');
     const imageSrc = car.image ? `data:image/png;base64,${car.image}` : 'img/default.jpg';
-
+    //kolla om booked
     let html = `
         <h2>${car.name} ${car.model}</h2>
         <img src="${imageSrc}" class="detail-image">
@@ -452,20 +525,24 @@ async function renderCarDetails(carId) {
         <div class="actions-container">
             <button id="btn-cancel" class="btn-standard btn">Tillbaka till listan</button>    
     `;
-
+    //kolla vem som är inloggad för att se vilka knappar som ska finnas
     if (userRole === 'GUEST') {
         html += `
             <p>Logga in eller skapa konto för att kunna boka bil.</p>
         </div>`;
     } else if (userRole === 'USER') {
-        html += `
+        if (car.booked) {
+            html += `<p>Bilen är redan bokad och kan inte bokas för tillfället.</p>
+        `;
+        } else {
+            html += `
             
             <button id="btn-book-car" class="btn-standard btn">Boka bil</button>
         </div>
         `;
+        }
     } else if (userRole === 'ADMIN') {
         html += `
-            
             <button id="btn-update-car" class="btn-standard btn">Uppdatera info</button>
             <button id="btn-delete-car" class="btn-negative btn">Ta bort bil</button>
         </div>
@@ -474,8 +551,8 @@ async function renderCarDetails(carId) {
 
     content.innerHTML = html;
     document.getElementById('btn-cancel').addEventListener('click', () => showPage('view-cars'));
-    // Koppla lyssnare baserat på roll
-    if (userRole === 'USER') {
+    // Kolla vem som är inloggad för att se vilka lyssnare som ska finnas
+    if (userRole === 'USER' && !car.booked) {
         document.getElementById('btn-book-car').addEventListener('click', () => handleBookCarSubmit(carId));
     }
     if (userRole === 'ADMIN') {
@@ -500,7 +577,7 @@ function renderUserTable(users) {
 
     // 1. Skapa thead och lägg till interaktiva rubriker
     const thead = document.createElement('thead');
-    
+
     // Vi skapar en hjälpfunktion för att rita pilarna (▲ / ▼ / ↕)
     const getIcon = (col) => {
         if (currentUserSortColumn !== col) return '↕';
@@ -549,7 +626,7 @@ function renderUserTable(users) {
     // 4. KOPPLA SORTERINGSLYSSNARE (Nu när bitarna ligger i DOM:en)
     const headers = thead.querySelectorAll('.sortable-th');
     headers.forEach(th => {
-        
+
         // Funktion som kör själva sorteringen
         const handleSort = () => {
             const column = th.getAttribute('data-column');
@@ -600,7 +677,7 @@ function renderUserTable(users) {
 async function renderUserProfile(userId) {
     console.log('!!!!!! renderUserProfile !!!!!!');
     const content = document.getElementById('content-area');
-    const user = await fetchUserById(userId);
+    const user = await apiGetUserById(userId);
     if (!user) return;
 
     let html = `
@@ -628,7 +705,7 @@ async function renderUserProfile(userId) {
     } else {
         html += `
             <div>
-                <button class="btn-standard" onclick="showPage('view-introduction')">Tillbaka</button>        
+                <button class="btn-standard" onclick="showPage('view-cars')">Tillbaka</button>        
                 <button class="btn-standard" onclick="renderUpdateUserForm(${user.id})">Uppdatera användare</button>
             </div>
         `;
@@ -640,7 +717,7 @@ async function renderUpdateUserForm(userId) {
     const content = document.getElementById('content-area');
 
     try {
-        const user = await fetchUserById(userId);
+        const user = await apiGetUserById(userId);
         if (!user) return;
 
         // 1. Rita ut formuläret på skärmen
@@ -723,7 +800,7 @@ async function renderUpdateCarForm(carId) {
     const content = document.getElementById('content-area');
 
     try {
-        const car = await fetchCarById(carId);
+        const car = await apiGetCarById(carId);
         if (!car) return;
 
         // 1. Rita ut formuläret på skärmen
@@ -808,77 +885,9 @@ function renderNewCarView() {
     };
 
     document.getElementById('btn-cancel').addEventListener('click', () => {
-        showPage('view-introduction');
+        showPage('view-cars');
     });
 
-}
-function customAlert(message, type = 'positive') {
-    console.log(`!!!!!! customAlert modal: ${message} (${type}) !!!!!!`);
-
-    // 1. Skapa overlay (mörka/suddiga bakgrunden)
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay show'; // Vi ger den 'show' direkt så den tonar in
-
-    // Bestäm färg på OK-knappen baserat på om det är ett fel (negative) eller framgång (positive)
-    const btnClass = type === 'negative' ? 'btn-negative' : 'btn-positive';
-
-    // 2. Bygg strukturen för modalen inuti overlayen
-    overlay.innerHTML = `
-        <div class="modal-content text-alert">
-            <div class="alert-icon-wrapper ${type}">
-                ${type === 'positive' ? '✓' : '✕'}
-            </div>
-            <p class="modal-message">${message}</p>
-            <div class="modal-buttons">
-                <button class="btn ${btnClass}" id="custom-alert-ok-btn">OK</button>
-            </div>
-        </div>
-    `;
-
-    // 3. Tryck ut den på skärmen (längst ner i body)
-    document.body.appendChild(overlay);
-
-    // 4. Gör så att OK-knappen stänger och raderar modalen helt ur DOM:en
-    document.getElementById('custom-alert-ok-btn').onclick = function () {
-        overlay.classList.remove('show'); // Starta uttoningsanimationen
-        setTimeout(() => overlay.remove(), 300); // Ta bort från HTML när animationen är klar
-    };
-}
-// ÄNDRAT HÄR: Vi tar emot 'onConfirm' som ett argument
-function customConfirm(message, onConfirm) {
-    console.log(`!!!!!! customConfirm modal: ${message} !!!!!!`);
-
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay show';
-
-    overlay.innerHTML = `
-        <div class="modal-content text-alert">
-            <div class="alert-icon-wrapper warning">⚠️</div>
-            <p class="modal-message">${message}</p>
-            <div class="modal-buttons" style="gap: 15px;">
-                <button class="btn btn-standard" id="custom-confirm-cancel-btn">Avbryt</button>
-                <button class="btn btn-negative" id="custom-confirm-ok-btn">Ja, ta bort</button>
-            </div>
-        </div>
-    `;
-
-    document.body.appendChild(overlay);
-
-    // Om användaren klickar på "Ja, ta bort"
-    document.getElementById('custom-confirm-ok-btn').onclick = function () {
-        overlay.classList.remove('show');
-        overlay.remove();
-
-        if (typeof onConfirm === 'function') {
-            onConfirm();
-        }
-    };
-
-    // Om användaren klickar på Avbryt
-    document.getElementById('custom-confirm-cancel-btn').onclick = function () {
-        overlay.classList.remove('show');
-        setTimeout(() => overlay.remove(), 300);
-    };
 }
 /* ==========================================================================
    3. HANDLERS / EVENTS (Hanterar klick och formulärskick)
@@ -898,10 +907,14 @@ async function handleLoginSubmit() {
         const role = userData.isAdmin ? 'ADMIN' : 'USER';
         sessionStorage.setItem('userRole', role);
 
-        await apiSaveSessionUserData(userData.userId);
-
+        await updateUserSession(userData.userId);
+        if (role === 'ADMIN') {
+            customAlert(`Välkommen ${sessionStorage.firstName}, du är inloggad som administratör!`)
+        } else {
+            customAlert(`Välkommen ${sessionStorage.firstName}, du är nu inloggad och kan hyra bilar!`)
+        }
         renderMenu(role);
-        showPage('view-introduction');
+        showPage('view-cars');
     } else {
         errorMsg.style.display = 'block';
     }
@@ -937,7 +950,7 @@ async function handleCreateUserSubmit() {
             sessionStorage.setItem('firstName', savedUser.firstName);
 
             renderMenu('USER');
-            showPage('view-introduction');
+            showPage('view-cars');
         } else if (sessionStorage.getItem('userRole') === 'ADMIN') {
             customAlert("Ny användare skapad av admin!", 'positive');
             showPage('view-users');
@@ -987,8 +1000,8 @@ async function handleUpdateUserSubmit() {
             showPage('view-users');
         } else if (sessionStorage.getItem('userId') == userId) {
             if (sessionStorage.getItem('email') === email) {
-                await apiSaveSessionUserData(userId);
-                showPage('view-introduction');
+                await updateUserSession(userId);
+                showPage('view-cars');
             } else {
                 customAlert('Eftersom du bytt email behöver du logga in på nytt.', 'negative');
                 sessionStorage.clear();
@@ -1021,9 +1034,15 @@ async function handleDeleteUserSubmit(userId) {
         customAlert("Kunde inte ta bort användaren.", 'negative');
     }
 }
+/******************************************************* */
 async function handleBookCarSubmit(carId) {
     console.log(`!!!!!! handleBookCarSubmit för bil: ${carId} !!!!!!`);
-    // Här fyller du i ditt boknings-fetchanrop sen!
+    const car = api
+    const content = document.getElementById('content-area');
+    content.innerHTML = `
+        <h3>Bokning av </h3>    
+    `;
+
 }
 
 async function handleUpdateCarSubmit(carId) {
@@ -1133,7 +1152,7 @@ function initApp() {
         showPage('view-login');
     } else {
         renderMenu(savedRole);
-        showPage('view-introduction');
+        showPage('view-cars');
     }
 }
 
