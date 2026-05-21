@@ -6,6 +6,7 @@ om man är inloggad som user och klickar på tillbaka till listan efter att ha u
 const urlLogin = 'http://localhost:8080/api/v1/auth/login';
 const urlCars = 'http://localhost:8080/api/v1/cars';
 const urlUsers = 'http://localhost:8080/api/v1/users';
+const urlBookings = 'http://localhost:8080/api/v1/bookings';
 /* ==========================================================================
    CONFIG & MENU DEFINITIONS
    ========================================================================== */
@@ -30,8 +31,7 @@ async function apiGetCars() {
     try {
         const response = await fetch(`${urlCars}`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include'
+            headers: { 'Content-Type': 'application/json' }
         });
         return response.ok ? await response.json() : null;
     } catch (error) {
@@ -45,8 +45,7 @@ async function apiGetCarById(carId) {
     try {
         const response = await fetch(`${urlCars}/${carId}`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include'
+            headers: { 'Content-Type': 'application/json', 'Authorization': sessionStorage.getItem('basicAuth') }
         });
         if (response.ok) {
             return await response.json();
@@ -60,13 +59,34 @@ async function apiGetCarById(carId) {
     }
 }
 
+async function apiGetBookingsByUserId(userId) {
+    console.log(`!!!!!! apiGetBookingsByUserId(${userId}) !!!!!!`);
+    try {
+        const response = await fetch(`${urlBookings}/user/${userId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth')
+            }
+        });
+        if (response.ok) {
+            return await response.json();
+        } else {
+            customAlert(`Bokningar för användare med id ${userId} hittades inte.`, 'negative');
+            return null;
+        }
+    } catch (error) {
+        console.error("Kunde inte nå API:et", error);
+        customAlert("Serverfel. Kontrollera att din backend är igång!", 'negative');
+    }
+}
+
 async function apiGetUsers() {
     console.log('!!!!!! apiGetUsers !!!!!!');
     try {
         const response = await fetch(`${urlUsers}`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include'
+            headers: { 'Content-Type': 'application/json', 'Authorization': sessionStorage.getItem('basicAuth') }
         });
         return response.ok ? await response.json() : null;
     } catch (error) {
@@ -80,8 +100,7 @@ async function apiGetUserById(userId) {
     try {
         const response = await fetch(`${urlUsers}/${userId}`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include'
+            headers: { 'Content-Type': 'application/json', 'Authorization': sessionStorage.getItem('basicAuth') }
         });
         return response.ok ? await response.json() : null;
     } catch (error) {
@@ -98,6 +117,9 @@ async function apiLogin(username, password) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
         });
+        console.log(response);
+        const basicAuthString = 'Basic ' + btoa(username + ':' + password);
+        sessionStorage.setItem('basicAuth', basicAuthString);
         return response;
     } catch (error) {
         console.error("Nätverksfel vid inloggning:", error);
@@ -123,9 +145,11 @@ async function apiUpdateUser(userId, userData) {
     try {
         const response = await fetch(`${urlUsers}/${userId}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(userData),
-            credentials: 'include'
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth')
+            },
+            body: JSON.stringify(userData)
         });
         return response;
     } catch (error) {
@@ -139,9 +163,11 @@ async function apiUpdateCar(carId, carData) {
     try {
         const response = await fetch(`${urlCars}/${carId}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(carData),
-            credentials: 'include'
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth')
+            },
+            body: JSON.stringify(carData)
         });
         return response;
     } catch (error) {
@@ -153,14 +179,16 @@ async function apiDeleteUser(userId) {
     try {
         const response = await fetch(`${urlUsers}/${userId}`, {
             method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include'
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth')
+            },
+
         });
         return response;
     } catch (error) {
         console.error("Nätverksfel:", error);
     }
-
 }
 
 async function apiCreateCar(formData) {
@@ -168,10 +196,10 @@ async function apiCreateCar(formData) {
     try {
         const response = await fetch(`${urlCars}`, {
             method: 'POST',
-            credentials: 'include',
-            body: formData // Skickar med paketet den fick
+            headers: { 'Authorization': sessionStorage.getItem('basicAuth') },
+            body: formData
         });
-        return response; // Returnerar hela svaret så handlern kan se om det gick bra
+        return response;
     } catch (error) {
         console.error("Nätverksfel i apiCreateCar:", error);
         return null;
@@ -182,12 +210,61 @@ async function apiDeleteCar(carId) {
     try {
         const response = await fetch(`${urlCars}/${carId}`, {
             method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include'
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth')
+            }
         });
         return response;
     } catch (error) {
         console.error("Nätverksfel:", error);
+    }
+}
+
+async function apiReturnCar(carId) {
+    /*try {
+        const response = await fetch(`${urlCars}/${carId}`, {
+            method: 'DELETE',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth') }
+        });
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel:", error);
+    }*/
+}
+
+async function apiCreateBooking(startDate, endDate, carId, userId) {
+    console.log('!!!!!! apiCreateBooking !!!!!!');
+    const bookingData = {
+        fromDate: startDate,
+        toDate: endDate,
+        userId: parseInt(userId),
+        carId: parseInt(carId)
+    };
+
+    try {
+        const response = await fetch(`${urlBookings}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth')
+            },
+            body: JSON.stringify(bookingData)
+        });
+        console.log(response);
+        if (response.status === 403) {
+            // Vi läser ut texten ur 403-felet för att se om Spring Security förklarar sig!
+            const errorText = await response.text();
+            console.error("--- 403 FORBIDDEN DETALJER ---");
+            console.error(errorText);
+            alert("Hoppsan! Backend nekar oss tillträde (403 Forbidden).");
+        }
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel vid apiCreateBooking:", error);
+        return null;
     }
 }
 /* ==========================================================================
@@ -272,6 +349,35 @@ function customConfirm(message, onConfirm) {
         overlay.classList.remove('show');
         setTimeout(() => overlay.remove(), 300);
     };
+}
+
+/**
+ * Generell funktion för att sortera en array av objekt baserat på en kolumn.
+ */
+function sortData(array, column, isAscending) {
+    // Vi returnerar en sorterad KOPIA av arrayen för att inte störa originaldata i onödan
+    return [...array].sort((a, b) => {
+        let valA = a[column];
+        let valB = b[column];
+        if (column === 'name') {
+            valA = `${a.firstName} ${a.lastName}`;
+            valB = `${b.firstName} ${b.lastName}`;
+        }
+        // Om det är en Java LocalDate-array [2026, 5, 21], gör om till sträng för jämförelse
+        if (Array.isArray(valA)) valA = valA.join('-');
+        if (Array.isArray(valB)) valB = valB.join('-');
+
+        // 1. Sortering för siffror och booleans (id, active, carId)
+        if (typeof valA === 'number' || typeof valA === 'boolean') {
+            return isAscending ? valA - valB : valB - valA;
+        }
+
+        // 2. Sortering för text/strängar (eller datumsträngar)
+        valA = valA ? valA.toString() : '';
+        valB = valB ? valB.toString() : '';
+
+        return isAscending ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    });
 }
 
 /* ==========================================================================
@@ -544,6 +650,13 @@ async function renderCarDetails(carId) {
     } else if (userRole === 'ADMIN') {
         html += `
             <button id="btn-update-car" class="btn-standard btn">Uppdatera info</button>
+            `
+        if (car.booked) {
+            html += `
+            <button id="btn-return-car" class="btn-negative btn">Lämna tillbaka bil</button>
+            `
+        }
+        html += `
             <button id="btn-delete-car" class="btn-negative btn">Ta bort bil</button>
         </div>
         `;
@@ -558,6 +671,9 @@ async function renderCarDetails(carId) {
     if (userRole === 'ADMIN') {
         document.getElementById('btn-update-car').addEventListener('click', () => renderUpdateCarForm(carId));
         document.getElementById('btn-delete-car').addEventListener('click', () => renderDeleteCarConfirm(carId));
+        if (car.booked) {
+            document.getElementById('btn-return-car').addEventListener('click', () => renderReturnCarConfirm(carId));
+        }
     }
 }// Håller reda på nuvarande sorteringstatus utanför funktionen
 let currentUserSortColumn = '';
@@ -601,7 +717,49 @@ function renderUserTable(users) {
 
     // 2. Skapa tbody och fyll med data (Glöm inte data-label för mobilen!)
     const tbody = document.createElement('tbody');
+    content.innerHTML = '';
 
+    table.appendChild(tbody);
+
+    // 3. Töm och tryck ut tabellen i DOM:en
+    content.appendChild(table);
+    drawUsersTable(tbody, users);
+    // 4. KOPPLA SORTERINGSLYSSNARE (Nu när bitarna ligger i DOM:en)
+    const headers = thead.querySelectorAll('.sortable-th');
+    headers.forEach(th => {
+
+        // Funktion som kör själva sorteringen
+        const handleSort = () => {
+            const column = th.getAttribute('data-column');
+
+            if (currentUserSortColumn === column) {
+                isUserSortAscending = !isUserSortAscending; // Vänd ordning om vi klickar igen
+            } else {
+                currentUserSortColumn = column;
+                isUserSortAscending = true; // Ny kolumn börjar alltid som ASC
+            }
+            users = sortData(users, column, isUserSortAscending);
+            tbody.innerHTML = '';
+            drawUsersTable(tbody, users);
+            updateHeaderIcons(thead);
+            th.focus;
+
+        };
+
+        // Klicklyssnare för musen
+        th.addEventListener('click', handleSort);
+
+        // Keydown-lyssnare för tangentbordet
+        th.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleSort();
+            }
+        });
+    });
+}
+
+function drawUsersTable(tbody, users) {
     users.forEach(user => {
         const tr = document.createElement('tr');
         tr.classList.add('clickable-row');
@@ -617,62 +775,9 @@ function renderUserTable(users) {
         tbody.appendChild(tr);
     });
 
+
     table.appendChild(tbody);
 
-    // 3. Töm och tryck ut tabellen i DOM:en
-    content.innerHTML = '';
-    content.appendChild(table);
-
-    // 4. KOPPLA SORTERINGSLYSSNARE (Nu när bitarna ligger i DOM:en)
-    const headers = thead.querySelectorAll('.sortable-th');
-    headers.forEach(th => {
-
-        // Funktion som kör själva sorteringen
-        const handleSort = () => {
-            const column = th.getAttribute('data-column');
-
-            if (currentUserSortColumn === column) {
-                isUserSortAscending = !isUserSortAscending; // Vänd ordning om vi klickar igen
-            } else {
-                currentUserSortColumn = column;
-                isUserSortAscending = true; // Ny kolumn börjar alltid som ASC
-            }
-
-            // Sortera arrayen dynamiskt
-            users.sort((a, b) => {
-                let valA, valB;
-
-                if (column === 'id') {
-                    valA = a.id;
-                    valB = b.id;
-                    return isUserSortAscending ? valA - valB : valB - valA;
-                } else if (column === 'name') {
-                    // Slå ihop för- och efternamn för en rättvis bokstavssortering
-                    valA = `${a.firstName} ${a.lastName}`.toLowerCase();
-                    valB = `${b.firstName} ${b.lastName}`.toLowerCase();
-                } else {
-                    valA = a[column].toLowerCase();
-                    valB = b[column].toLowerCase();
-                }
-
-                return isUserSortAscending ? valA.localeCompare(valB) : valB.localeCompare(valA);
-            });
-
-            // Rendera om hela tabellen med den nya sorterade datan!
-            renderUserTable(users);
-        };
-
-        // Klicklyssnare för musen
-        th.addEventListener('click', handleSort);
-
-        // Keydown-lyssnare för tangentbordet (Tryck Enter för att sortera - Strikt WCAG-krav!)
-        th.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleSort();
-            }
-        });
-    });
 }
 async function renderUserProfile(userId) {
     console.log('!!!!!! renderUserProfile !!!!!!');
@@ -698,6 +803,7 @@ async function renderUserProfile(userId) {
         html += `
             <div>
                 <button class="btn-standard" onclick="showPage('view-users')">Tillbaka</button>        
+                <button class="btn-standard" onclick="renderUsersBookingTable(${user.id})">Användarens bokningar</button>
                 <button class="btn-standard" onclick="renderUpdateUserForm(${user.id})">Uppdatera användare</button>
                 <button class="btn-standard" onclick="renderDeleteUserConfirm(${user.id})">Ta bort användare</button>
             </div>
@@ -712,6 +818,142 @@ async function renderUserProfile(userId) {
     }
     content.innerHTML = html;
 }
+let currentBookingSortColumn = '';
+let isBookingSortAscending = true;
+
+async function renderUsersBookingTable(userId) {
+    console.log("----- renderUsersBookingTable ------");
+    const content = document.getElementById('content-area');
+
+    const table = document.createElement('table');
+    table.classList.add('table-rows');
+    console.log("----- 1 ------");
+    // 1. Skapa thead och lägg till interaktiva rubriker
+    const thead = document.createElement('thead');
+
+    // Vi skapar en hjälpfunktion för att rita pilarna (▲ / ▼ / ↕)
+    const getIcon = (col) => {
+        if (currentBookingSortColumn !== col) return '↕';
+        return isBookingSortAscending ? '▲' : '▼';
+    };
+    console.log("----- 2 ------");
+    thead.innerHTML = `
+        <tr>
+            <th class="sortable-th" data-column="id" role="columnheader" tabindex="0" aria-sort="${currentBookingSortColumn === 'id' ? (isBookingSortAscending ? 'ascending' : 'descending') : 'none'}">
+                Id <span class="sort-icon">${getIcon('id')}</span>
+            </th>
+            <th class="sortable-th" data-column="active" role="columnheader" tabindex="0" aria-sort="${currentBookingSortColumn === 'active' ? (isBookingSortAscending ? 'ascending' : 'descending') : 'none'}">
+                Aktiv <span class="sort-icon">${getIcon('active')}</span>
+            </th>
+            <th class="sortable-th" data-column="carId" role="columnheader" tabindex="0" aria-sort="${currentBookingSortColumn === 'carId' ? (isBookingSortAscending ? 'ascending' : 'descending') : 'none'}">
+                Bil <span class="sort-icon">${getIcon('carId')}</span>
+            </th>
+            <th class="sortable-th" data-column="fromDate" role="columnheader" tabindex="0" aria-sort="${currentBookingSortColumn === 'fromDate' ? (isBookingSortAscending ? 'ascending' : 'descending') : 'none'}">
+                Startdatum <span class="sort-icon">${getIcon('fromDate')}</span>
+            </th>
+            <th class="sortable-th" data-column="toDate" role="columnheader" tabindex="0" aria-sort="${currentBookingSortColumn === 'toDate' ? (isBookingSortAscending ? 'ascending' : 'descending') : 'none'}">
+                Återlämningsdatum <span class="sort-icon">${getIcon('toDate')}</span>
+            </th>
+        </tr>
+    `;
+    
+    table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    let bookings = await apiGetBookingsByUserId(userId);
+    
+    console.log("längd: " + bookings.length);
+    content.innerHTML = '';
+    content.appendChild(table);
+    
+    drawBookingsTable(tbody, bookings);
+
+    const headers = thead.querySelectorAll('.sortable-th');
+    headers.forEach(th => {
+        const handleSort = () => {
+            const column = th.getAttribute('data-column');
+
+            if (currentBookingSortColumn === column) {
+                isBookingSortAscending = !isBookingSortAscending;
+            } else {
+                currentBookingSortColumn = column;
+                isBookingSortAscending = true;
+            }
+
+            bookings = sortData(bookings, column, isBookingSortAscending);
+
+            // FIX: Tömmer gamla raderna innan vi ritar de nya, sorterade raderna
+            tbody.innerHTML = '';
+            drawBookingsTable(tbody, bookings);
+            updateHeaderIcons(thead);
+            th.focus();
+        };
+        th.addEventListener('click', handleSort);
+
+        th.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleSort();
+            }
+        });
+
+    });
+}
+
+function updateHeaderIcons(thead) {
+    const headers = thead.querySelectorAll('.sortable-th');
+    headers.forEach(th => {
+        const column = th.getAttribute('data-column');
+        const iconSpan = th.querySelector('.sort-icon');
+        if (iconSpan) {
+            if (currentBookingSortColumn !== column) {
+                iconSpan.textContent = '↕';
+            } else {
+                iconSpan.textContent = isBookingSortAscending ? '▲' : '▼';
+            }
+        }
+    });
+
+    th.addEventListener('click', () => {
+        const column = th.getAttribute('data-column');
+
+        // Vänd ordning om vi klickar på samma igen
+        if (currentBookingSortColumn === column) {
+            isBookingSortAscending = !isBookingSortAscending;
+        } else {
+            currentBookingSortColumn = column;
+            isBookingSortAscending = true;
+        }
+
+        bookings = sortData(bookings, column, isBookingSortAscending);
+
+        drawBookingsTable(tbody, bookings);
+        updateHeaderIcons(thead);
+    });
+}
+function drawBookingsTable(tbody, bookings) {
+    bookings.forEach(booking => {
+        console.log("booking: " + booking.id);
+        const tr = document.createElement('tr');
+        tr.classList.add('clickable-row');
+
+        tr.innerHTML = `
+            <td data-label="Id">${booking.id}</td>
+            <td>${booking.active ? '🟢 Aktiv' : '🔴 Avslutad'}</td>
+            <td data-label="Bil id">${booking.carId}</td>
+            <td data-label="Startdatum">${booking.fromDate}</td>
+            <td data-label="Slutdatum">${booking.toDate}</td>
+        `;
+
+        tr.addEventListener('click', () => renderBooking(booking.id));
+        tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+
+}
+async function renderBooking() {
+    console.log('!!!!!! renderBooking !!!!!!');
+}
 async function renderUpdateUserForm(userId) {
     console.log('!!!!!! renderUpdateUserForm !!!!!!');
     const content = document.getElementById('content-area');
@@ -720,7 +962,6 @@ async function renderUpdateUserForm(userId) {
         const user = await apiGetUserById(userId);
         if (!user) return;
 
-        // 1. Rita ut formuläret på skärmen
         content.innerHTML = `
             <div class="update-user-container">
                 <h2>Uppdatera användare: ${user.username}</h2>
@@ -795,6 +1036,16 @@ function renderDeleteCarConfirm(carId) {
         }
     );
 }
+function renderReturnCarConfirm(carId) {
+    console.log(`!!!!!! renderReturnCarConfirm för bil: ${carId} !!!!!!`);
+    customConfirm(
+        `Är du helt säker på att du vill lämna tillbaka bil med ID ${carId}?`,
+        () => {
+            handleReturnCarSubmit(carId);
+        }
+    );
+}
+
 async function renderUpdateCarForm(carId) {
     console.log(`!!!!!! renderUpdateCarForm för bil: ${carId} !!!!!!`);
     const content = document.getElementById('content-area');
@@ -1033,18 +1284,74 @@ async function handleDeleteUserSubmit(userId) {
     } else {
         customAlert("Kunde inte ta bort användaren.", 'negative');
     }
-}
-/******************************************************* */
+}/******************************************************* */
 async function handleBookCarSubmit(carId) {
     console.log(`!!!!!! handleBookCarSubmit för bil: ${carId} !!!!!!`);
-    const car = api
-    const content = document.getElementById('content-area');
-    content.innerHTML = `
-        <h3>Bokning av </h3>    
+    const car = await apiGetCarById(carId);
+    if (!car) return;
+
+    const modalOverlay = document.createElement('div');
+    // Matchar din CSS: .modal-overlay
+    modalOverlay.className = 'modal-overlay';
+
+    const today = new Date().toLocaleDateString('sv-SE');
+
+    // Matchar din CSS: .modal-content.text-alert, .modal-message, .modal-buttons
+    modalOverlay.innerHTML = `
+        <div class="modal-content text-alert">
+            <h3>Boka ${car.name} ${car.model}</h3>
+            <div class="modal-message">
+                <p><strong>Startdatum:</strong> ${today}</p>
+                <div style="margin-top: 15px;">
+                    <label for="booking-days"><b>Antal dagar:</b></label>
+                    <select id="booking-days" class="form-control" style="margin-top: 5px; padding: 5px;">
+                        <option value="1">1 dag</option>
+                        <option value="2" selected>2 dagar</option>
+                        <option value="3">3 dagar</option>
+                        <option value="4">4 dagar</option>
+                        <option value="5">5 dagar</option>
+                        <option value="6">6 dagar</option>
+                        <option value="7">7 dagar</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" id="btn-modal-cancel" class="btn btn-standard">Avbryt</button>
+                <button type="button" id="btn-modal-book" class="btn btn-standard">Boka</button>
+            </div>
+        </div>
     `;
 
-}
+    document.body.appendChild(modalOverlay);
 
+    // CRITICAL: Eftersom din CSS startar på opacity: 0, måste vi lägga till .show 
+    // med en mikroskopisk fördröjning för att animationen ska kicka igång!
+    setTimeout(() => {
+        modalOverlay.classList.add('show');
+    }, 10);
+
+    modalOverlay.querySelector('#btn-modal-cancel').addEventListener('click', () => {
+        modalOverlay.classList.remove('show');
+        setTimeout(() => {
+            modalOverlay.remove();
+        }, 300);
+    });
+    modalOverlay.querySelector('#btn-modal-book').addEventListener('click', async () => {
+        let endDate = new Date();
+        const days = parseInt(modalOverlay.querySelector('#booking-days').value);
+        endDate.setDate(endDate.getDate() + days);
+        endDate = endDate.toLocaleDateString('sv-SE');
+        console.log("endDate: " + endDate);
+        console.log("days: " + days);
+        console.log("today: " + today);
+        apiCreateBooking(today, endDate, carId, sessionStorage.getItem('userId'));
+        modalOverlay.classList.remove('show');
+        setTimeout(() => {
+            modalOverlay.remove();
+        }, 300);
+    });
+
+}
 async function handleUpdateCarSubmit(carId) {
     console.log(`!!!!!! handleUpdateCarSubmit för bil: ${carId} !!!!!!`);
     const name = document.getElementById('name').value;
@@ -1086,6 +1393,21 @@ async function handleDeleteCarSubmit(carId) {
 
     // Ropa på API-funktionen och VÄNTA (await) på svaret
     const response = await apiDeleteCar(carId);
+
+    // Hantera resultatet på skärmen
+    if (response && response.status === 204) {
+        customAlert(`Bil med id ${carId} borttagen ur databasen.`, 'positive');
+        showPage('view-cars');
+    } else {
+        customAlert("Kunde inte ta bort bilen.", 'negative');
+    }
+}
+
+async function handleReturnCarSubmit(carId) {
+    console.log('!!!!!! handleReturnCarSubmit !!!!!!');
+
+    // Ropa på API-funktionen och VÄNTA (await) på svaret
+    const response = await apiReturnCar(carId);
 
     // Hantera resultatet på skärmen
     if (response && response.status === 204) {
