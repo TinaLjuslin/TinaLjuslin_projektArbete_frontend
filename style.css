@@ -114,7 +114,7 @@ body {
 /********************************************************
     SUB-MENU
 *********************************************************/
-/* Vi döper om väljarna här också från "a" till "button" */
+/* Vi döper om väljarna här också från 'a' till 'button' */
 .sub-menu li button {
     font-size: 0.95rem;
     font-weight: 400;
@@ -299,7 +299,33 @@ em {
 .btn-copy:hover {
     background-color: #1e3f32;
 }
+.filter-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
 
+.btn-filter {
+    background-color: var(--background-sidebar-color);
+    color: white;
+    border: 1px solid var(--background-sidebar-color);
+    padding: 8px 16px;
+    border-radius: 20px; /* Gör knapparna runda och snygga (pills) */
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.btn-filter:hover {
+    background-color: #e0e0e0;
+}
+
+/* När knappen är aktiv/vald */
+.btn-filter.active {
+    background-color: var(--wigell-color); /* Eller din favoritfärg */
+    color: white;
+    border-color: var(--wigell-color);
+}
 /********************************************************
     TABLE
 *********************************************************/
