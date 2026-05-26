@@ -6,6 +6,7 @@ lägg till tillbaka-knapp på allt
 kolla fokus och tab
 tillbaka-knapp i renderUsersBookingTable
 user bokar bil så kommer man tillbaka till fel ställe
+om en admin klickar på en bokning som inte finns får man inget felmeddelande
 
 
 **
@@ -38,11 +39,13 @@ const menuItems = [
 ];
 
 let currentBookingFilter = 'all';
-let currentUserSortColumn = '';
+let currentUserSortColumn = 'id';
 let isUserSortAscending = true;
 let currentBookingSortColumn = '';
 let isBookingSortAscending = true;
-
+let lastPageForBackButton = null;
+let currentCarSortColumn = 'id';
+let isCarSortAscending = true;
 
 /* ==========================================================================
    ==========================================================================
@@ -51,7 +54,6 @@ let isBookingSortAscending = true;
    ========================================================================== */
 
 async function apiLogin(username, password) {
-    console.log('!!!!!! apiLogin !!!!!!');
     try {
         const response = await fetch(`http://localhost:8080/api/v1/auth/login`, {
             method: 'POST',
@@ -108,7 +110,6 @@ async function apiFetch(endpoint, method = 'GET', body = null, isMultipart = fal
    ========================================================================== */
 
 async function updateUserSession(userId) {
-    console.log('!!!!!! updateUserSession !!!!!!');
     const user = await apiFetch(`/users/${userId}`);
     if (user) {
         sessionStorage.setItem('firstName', user.firstName);
@@ -119,16 +120,10 @@ async function updateUserSession(userId) {
     }
 }
 function customAlert(message, type = 'positive') {
-    console.log(`!!!!!! customAlert modal: ${message} (${type}) !!!!!!`);
-
-    // 1. Skapa overlay (mörka/suddiga bakgrunden)
     const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay show'; // Vi ger den 'show' direkt så den tonar in
-
-    // Bestäm färg på OK-knappen baserat på om det är ett fel (negative) eller framgång (positive)
+    overlay.className = 'modal-overlay show';
     const btnClass = type === 'negative' ? 'btn-negative' : 'btn-positive';
 
-    // 2. Bygg strukturen för modalen inuti overlayen
     overlay.innerHTML = `
         <div class='modal-content text-alert'>
             <div class='alert-icon-wrapper ${type}'>
@@ -141,19 +136,15 @@ function customAlert(message, type = 'positive') {
         </div>
     `;
 
-    // 3. Tryck ut den på skärmen (längst ner i body)
     document.body.appendChild(overlay);
 
-    // 4. Gör så att OK-knappen stänger och raderar modalen helt ur DOM:en
     document.getElementById('custom-alert-ok-btn').onclick = function () {
-        overlay.classList.remove('show'); // Starta uttoningsanimationen
-        setTimeout(() => overlay.remove(), 300); // Ta bort från HTML när animationen är klar
+        overlay.classList.remove('show');
+        setTimeout(() => overlay.remove(), 300);
     };
 }
-// ÄNDRAT HÄR: Vi tar emot 'onConfirm' som ett argument
-function customConfirm(message, onConfirm) {
-    console.log(`!!!!!! customConfirm modal: ${message} !!!!!!`);
 
+function customConfirm(message, onConfirm) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay show';
 
@@ -268,6 +259,13 @@ function createSortableThead(columns, currentSortCol, isAsc, onSortChange) {
 
     return thead;
 }
+function handleBackButton() {
+    if (lastPageForBackButton) {
+        lastPageForBackButton.page(lastPageForBackButton.id);
+    } else {
+        showPage('view-cars');
+    }
+}
 /* ==========================================================================
    ==========================================================================
    RENDER FUNCTIONS 
@@ -275,7 +273,6 @@ function createSortableThead(columns, currentSortCol, isAsc, onSortChange) {
    ========================================================================== */
 
 function renderMenu(userRole) {
-    console.log('!!!!!! renderMenu !!!!!!');
     const menuContainer = document.getElementById('main-menu');
     menuContainer.innerHTML = '';
 
@@ -292,7 +289,6 @@ function renderMenu(userRole) {
 }
 
 function showPage(viewId) {
-    console.log(`!!!!!! showPage(${viewId}) !!!!!!`);
     const allButtons = document.querySelectorAll('.sidebar button');
     allButtons.forEach(btn => btn.classList.remove('active'));
 
@@ -303,20 +299,19 @@ function showPage(viewId) {
     });
 
     const content = document.getElementById('content-area');
-
+    lastPageForBackButton = null;
     switch (viewId) {
         case 'view-login':
             renderLoginView();
             return;
         case 'view-cars':
-            renderCarList();
+            renderCarsView();
             break;
         case 'view-car-new':
             renderNewCarView();
             break;
         case 'view-users':
-            content.innerHTML = `<h1>Användarlista</h1>`;
-            apiFetch(`/users`).then(users => renderUserTable(users));
+            renderUserTable();
             break;
         case 'view-user-new':
             renderNewUserView();
@@ -343,7 +338,6 @@ function showPage(viewId) {
 }
 
 function renderLoginView() {
-    console.log('!!!!!! renderLoginView !!!!!!');
     const content = document.getElementById('content-area');
     content.innerHTML = `
         <div class='login-container'>
@@ -369,7 +363,6 @@ function renderLoginView() {
     };
 }
 async function renderBookingsView() {
-    console.log('!!!!!! renderBookingsView !!!!!!');
     const content = document.getElementById('content-area');
     let bookings = [];
 
@@ -381,7 +374,7 @@ async function renderBookingsView() {
                 <button id='btn-booking-active' class='btn-filter ${currentBookingFilter === 'active' ? 'active' : ''}'>Enbart aktiva</button>
             </div>
         </div>
-        <div id='bookings-table-container'></div>
+        <div class='table-container'id='bookings-table-container'></div>
     `;
 
     const tableContainer = document.getElementById('bookings-table-container');
@@ -409,7 +402,7 @@ async function renderBookingsView() {
             isBookingSortAscending = true;
         }
         bookings = sortData(bookings, column, isBookingSortAscending);
-        drawBookingsTable(tbody, bookings, true);
+        drawBookingsTable(tbody, bookings, true, renderBookingsView);
     });
 
     // 2. Montera ihop tabellen och lägg till den i containern
@@ -426,7 +419,7 @@ async function renderBookingsView() {
     }
 
     if (!bookings) return;
-    drawBookingsTable(tbody, bookings, true);
+    drawBookingsTable(tbody, bookings, true, renderBookingsView);
 
     // === FILTER-KNAPPARNAS EVENT LISTENERS ===
     document.getElementById('btn-booking-all').addEventListener('click', async () => {
@@ -436,7 +429,7 @@ async function renderBookingsView() {
 
         bookings = await apiFetch(`/bookings`);//apiGetBookings();
         if (!bookings) return;
-        drawBookingsTable(tbody, bookings, true);
+        drawBookingsTable(tbody, bookings, true, renderBookingsView);
     });
 
     document.getElementById('btn-booking-active').addEventListener('click', async () => {
@@ -446,11 +439,10 @@ async function renderBookingsView() {
 
         bookings = await apiFetch(`/bookings/active`);//apiGetActiveBookings();
         if (!bookings) return;
-        drawBookingsTable(tbody, bookings, true);
+        drawBookingsTable(tbody, bookings, true, renderBookingsView);
     });
 }
 function renderNewUserView() {
-    console.log('!!!!!! renderNewUserView !!!!!!');
     const content = document.getElementById('content-area');
     content.innerHTML = `
         <div class='new-user-container'>
@@ -481,28 +473,23 @@ function renderNewUserView() {
 
     document.getElementById('new-user-form').onsubmit = function (e) {
         e.preventDefault();
+        lastPageForBackButton = { page: renderNewUserView, id: null };
         handleCreateUserSubmit();
     };
-
-    document.getElementById('btn-cancel').addEventListener('click', () => {
-        showPage('view-cars');
+    content.querySelector('#btn-cancel').addEventListener('click', () => {
+        handleBackButton();
     });
-
 }
-async function renderCarList() {
-    console.log('!!!!!! renderCarList !!!!!!');
+async function renderCarsView() {
     const content = document.getElementById('content-area');
-
-    // 1. Hämta bilarna från API
-    const cars = await apiFetch(`/cars`);//apiGetCars();
+    const cars = await apiFetch(`/cars`);
 
     if (!cars || cars.length === 0) {
         content.innerHTML = '<p>Inga bilar hittades.</p>';
         return;
     }
-
-    // 2. Skapa bas-strukturen för sidan med sorterings-dropdownen
-    content.innerHTML = `
+    if (sessionStorage.getItem('userRole') !== 'ADMIN') {
+        content.innerHTML = `
         <p>Rödmarkerade bilar är redan uthyrda, gröna är lediga för bokning.</p>    
         <div class='filter-bar'>
             <label for='car-sort'>Sortera bilar efter:</label>
@@ -510,39 +497,129 @@ async function renderCarList() {
                 <option value='default'>Välj...</option>
                 <option value='name'>Namn (A-Ö)</option>
                 <option value='type'>Typ / Kategori</option>
-            </select>
-            
+            </select>            
         </div>
         <ul id='car-list' class='cars-grid'></ul>
     `;
 
-    // 3. Rita ut bilarna för första gången
-    renderCarCards(cars);
+        renderCarCards(cars);
 
-    // 4. Koppla lyssnare till sorteringen
-    document.getElementById('car-sort').addEventListener('change', (e) => {
-        const sortBy = e.target.value;
+        document.getElementById('car-sort').addEventListener('change', (e) => {
+            const sortBy = e.target.value;
+            let sortedCars = [...cars];
 
-        // Skapa en kopia av arrayen för att inte mutera originalet direkt
-        let sortedCars = [...cars];
+            if (sortBy === 'name') {
+                sortedCars.sort((a, b) => a.name.localeCompare(b.name));
+            } else if (sortBy === 'type') {
+                sortedCars.sort((a, b) => a.type.localeCompare(b.type));
+            }
+            renderCarCards(sortedCars);
+        });
+    } else {
 
-        if (sortBy === 'name') {
-            sortedCars.sort((a, b) => a.name.localeCompare(b.name));
-        } else if (sortBy === 'type') {
-            sortedCars.sort((a, b) => a.type.localeCompare(b.type));
+        content.innerHTML = `
+            <h2>Administrera vagnpark</h2>
+            <p>Klicka på en rad för att ändra, ta bort eller se detaljer för bilen.</p>
+            <div class='filter-bar admin-mobile-sort'>
+                <label for='admin-car-sort'>Sortera bilar efter:</label>
+                <select id='admin-car-sort' class='form-control'>
+                    <option value='id'>Id</option>
+                    <option value='name'>Märke</option>
+                    <option value='model'>Modell</option>
+                    <option value='type'>Typ</option>
+                    <option value='price'>Pris/dag</option>
+                    <option value='booked'>Status</option>
+                </select>
+            </div>
+            <div class='table-container' id='admin-car-table-container'></div>
+        `;
+
+        renderAdminCarsTable(cars);
+
+        const mobileSortSelect = document.getElementById('admin-car-sort');
+        if (mobileSortSelect) {
+            mobileSortSelect.value = currentCarSortColumn;
+
+            mobileSortSelect.addEventListener('change', (e) => {
+                currentCarSortColumn = e.target.value;
+                isCarSortAscending = true;
+
+                renderAdminCarsTable(cars);
+            });
         }
-
-        // Rendera om korten med den nya, sorterade ordningen!
-        renderCarCards(sortedCars);
-    });
+    }
 }
 
-// Hjälpfunktion som bara fokuserar på att rita ut själva korten
+function renderAdminCarsTable(cars) {
+    const container = document.getElementById('admin-car-table-container');
+    container.innerHTML = '';
+    if (currentCarSortColumn) {
+        cars = sortData(cars, currentCarSortColumn, isCarSortAscending); // Använder din befintliga sortData
+    }
+
+    const table = document.createElement('table');
+    table.classList.add('table-rows');
+    const tbody = document.createElement('tbody');
+
+    // Definiera kolumnerna för bilar
+    const columns = [
+        { id: 'id', label: 'Id' },
+        { id: 'name', label: 'Märke' },
+        { id: 'model', label: 'Modell' },
+        { id: 'type', label: 'Typ' },
+        { id: 'price', label: 'Pris/dag' },
+        { id: 'booked', label: 'Status' }
+    ];
+
+    const thead = createSortableThead(columns, currentCarSortColumn, isCarSortAscending, (column) => {
+        if (currentCarSortColumn === column) {
+            isCarSortAscending = !isCarSortAscending;
+        } else {
+            currentCarSortColumn = column;
+            isCarSortAscending = true;
+        }
+        // Sortera om och rita om raderna vid klick på kolumnrubrik
+        cars = sortData(cars, column, isCarSortAscending);
+        drawCarsTableRows(tbody, cars);
+    });
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    container.appendChild(table);
+    drawCarsTableRows(tbody, cars);
+}
+function drawCarsTableRows(tbody, cars) {
+    tbody.innerHTML = '';
+    cars.forEach(car => {
+        const tr = document.createElement('tr');
+        tr.classList.add('clickable-row');
+        tr.setAttribute('role', 'link');
+        tr.setAttribute('tabindex', '0');
+        tr.innerHTML = `
+            <td data-label= 'Id'>${car.id}</td>
+            <td data-label= 'Märke'>${car.name}</td>
+            <td data-label= 'Modell'>${car.model}</td>
+            <td data-label= 'Typ'>${car.type}</td>
+            <td data-label= 'Pris'>${car.price}</td>
+            <td data-label= 'Status'>${car.booked ? '🔴 Uthyrd' : '🟢 Ledig'}</td>
+        `;
+        const navigateToCar = () => {
+            lastPageForBackButton = { page: renderCarsView, id: null };
+            renderCarDetails(car.id);
+        };
+
+        tr.addEventListener('click', navigateToCar);
+        tr.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigateToCar();
+            }
+        });
+        tbody.appendChild(tr);
+    });
+}
 function renderCarCards(carsArray) {
     const listElement = document.getElementById('car-list');
     if (!listElement) return;
-
-    // Töm listan innan vi ritar de nya (viktigt vid om-sortering!)
     listElement.innerHTML = '';
 
     carsArray.forEach(car => {
@@ -550,7 +627,6 @@ function renderCarCards(carsArray) {
         const panel = document.createElement('div');
         panel.classList.add('panel');
 
-        // WCAG AA-tips: Gör panelen tillgänglig via tangentbordet eftersom den är klickbar
         panel.setAttribute('tabindex', '0');
         panel.setAttribute('role', 'button');
         panel.setAttribute('aria-label', `Visa detaljer för ${car.name} ${car.model}`);
@@ -561,7 +637,6 @@ function renderCarCards(carsArray) {
         }
         const imageSrc = car.image ? `data:image/webp;base64,${car.image}` : 'img/default.png';
 
-        // Här bygger vi insidan av panelen med ren HTML-mall
         panel.innerHTML = `
             <div class='panel-img-container'>
                 <img src='${imageSrc}' alt='' class='car-image'> 
@@ -571,8 +646,8 @@ function renderCarCards(carsArray) {
             </div>
         `;
 
-        // Koppla klickhändelsen till det faktiska DOM-elementet
         panel.addEventListener('click', () => {
+            lastPageForBackButton = { page: renderCarsView, id: null };
             renderCarDetails(car.id);
         });
 
@@ -580,6 +655,7 @@ function renderCarCards(carsArray) {
         panel.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
+                lastPageForBackButton = { page: renderCarsView, id: null };
                 renderCarDetails(car.id);
             }
         });
@@ -590,14 +666,13 @@ function renderCarCards(carsArray) {
 }
 
 async function renderCarDetails(carId) {
-    console.log('!!!!!! renderCarDetails !!!!!!');
-    const car = await apiFetch(`/cars/${carId}`);//apiGetCarById(carId);
+    const car = await apiFetch(`/cars/${carId}`);
     if (!car) return;
 
     const content = document.getElementById('content-area');
     const userRole = sessionStorage.getItem('userRole');
     const imageSrc = car.image ? `data:image/png;base64,${car.image}` : 'img/default.jpg';
-    //kolla om booked
+
     let html = `
         <h2>${car.name} ${car.model}</h2>
         <img src='${imageSrc}' class='detail-image'>
@@ -605,9 +680,8 @@ async function renderCarDetails(carId) {
         <p><strong>Typ:</strong> ${car.type}</p>
         <p>${car.feature1 || ''}, ${car.feature2 || ''}, ${car.feature3 || ''}</p>
         <div class='actions-container'>
-            <button id='btn-cancel' class='btn-standard btn'>Tillbaka till listan</button>    
+            <button id='btn-cancel' class='btn-standard btn'>Avbryt</button>    
     `;
-    //kolla vem som är inloggad för att se vilka knappar som ska finnas
     if (userRole === 'GUEST') {
         html += `
             <p>Logga in eller skapa konto för att kunna boka bil.</p>
@@ -617,61 +691,88 @@ async function renderCarDetails(carId) {
             html += `<p>Bilen är redan bokad och kan inte bokas för tillfället.</p>
         `;
         } else {
-            html += `
-            
-            <button id='btn-book-car' class='btn-standard btn'>Boka bil</button>
-        </div>
+            html += `         
+                <button id='btn-book-car' class='btn-standard btn'>Boka bil</button>
+            </div>
         `;
         }
     } else if (userRole === 'ADMIN') {
         html += `
-            <button id='btn-update-car' class='btn-standard btn'>Uppdatera info</button>
+            <button id='btn-update-car' class='btn-standard btn'>Uppdatera</button>
             `
-        /*if (car.booked) {
+        /*if (car.booked) { IMPLEMENTERA IGEN OM JAG HINNER, TILLBAKAKNAPPEN STÄLLER TILL DET
             html += `
             <button id='btn-return-car' class='btn-negative btn'>Lämna tillbaka bil</button>
             `
         }*/
         html += `
-            <button id='btn-delete-car' class='btn-negative btn'>Ta bort bil</button>
+            <button id='btn-delete-car' class='btn-negative btn'>Ta bort</button>
         </div>
         `;
     }
 
     content.innerHTML = html;
-    document.getElementById('btn-cancel').addEventListener('click', () => showPage('view-cars'));
-    // Kolla vem som är inloggad för att se vilka lyssnare som ska finnas
+    content.querySelector('#btn-cancel').addEventListener('click', () => {
+        handleBackButton();
+    });
     if (userRole === 'USER' && !car.booked) {
-        document.getElementById('btn-book-car').addEventListener('click', () => handleBookCarSubmit(carId));
+        document.getElementById('btn-book-car').addEventListener('click', () => {
+            lastPageForBackButton = {
+                page: renderCarDetails,
+                id: carId
+            };
+            handleBookCarSubmit(carId);
+        });
     }
     if (userRole === 'ADMIN') {
-        document.getElementById('btn-update-car').addEventListener('click', () => renderUpdateCarForm(carId));
-        document.getElementById('btn-delete-car').addEventListener('click', () => renderDeleteCarConfirm(carId));
+        document.getElementById('btn-update-car').addEventListener('click', () => {
+            lastPageForBackButton = { page: renderCarDetails, id: carId };
+            renderUpdateCarForm(carId)
+        });
+        document.getElementById('btn-delete-car').addEventListener('click', () => {
+            lastPageForBackButton = { page: renderCarDetails, id: carId };
+            renderDeleteCarConfirm(carId)
+        });
         /*if (car.booked) {
             document.getElementById('btn-return-car').addEventListener('click', () => renderReturnCarConfirm(carId));
         }*/
     }
-}
-function renderUserTable(users) {
-    console.log('!!!!!! renderUserTable !!!!!!');
+} async function renderUserTable() {
     const content = document.getElementById('content-area');
 
+    let users = await apiFetch('/users', 'GET');
     if (!users) {
         content.innerHTML = '<p>Kunde inte ladda användare.</p>';
         return;
     }
 
+    if (currentUserSortColumn) {
+        users = sortData(users, currentUserSortColumn, isUserSortAscending);
+    }
+
+    content.innerHTML = `
+        <h2>Administrera användare</h2>
+        <div class='filter-bar admin-mobile-sort'>
+            <label for='user-sort'>Sortera användare efter:</label>
+            <select id='user-sort' class='form-control'>
+                <option value='id'>Id</option>
+                <option value='name'>Namn</option>
+                <option value='username'>Username</option>
+            </select>
+        </div>
+        <div id='admin-user-table-container' class='table-container'></div>
+    `;
+
     const table = document.createElement('table');
     table.classList.add('table-rows');
+    const tbody = document.createElement('tbody');
 
-    // === DEFINIERA KOLUMNER ===
     const columns = [
         { id: 'id', label: 'Id' },
         { id: 'name', label: 'Namn' },
         { id: 'username', label: 'Username' }
     ];
 
-    // === ANVÄND DEN NYA FUNKTIONEN ===
     const thead = createSortableThead(columns, currentUserSortColumn, isUserSortAscending, (column) => {
         if (currentUserSortColumn === column) {
             isUserSortAscending = !isUserSortAscending;
@@ -684,37 +785,50 @@ function renderUserTable(users) {
     });
 
     table.appendChild(thead);
-
-    const tbody = document.createElement('tbody');
-    content.innerHTML = '';
     table.appendChild(tbody);
-    content.appendChild(table);
+
+    document.getElementById('admin-user-table-container').appendChild(table);
 
     drawUsersTable(tbody, users);
-    // ALLA manuella event listeners (headers.forEach) är nu borttagna härifrån!
-}
 
+    // === MOBILSORTERING ===
+    const userSortSelect = document.getElementById('user-sort');
+    if (userSortSelect) {
+        userSortSelect.value = currentUserSortColumn;
+
+        userSortSelect.addEventListener('change', (e) => {
+            currentUserSortColumn = e.target.value;
+            isUserSortAscending = true;
+
+            users = sortData(users, currentUserSortColumn, isUserSortAscending);
+            drawUsersTable(tbody, users);
+        });
+    }
+}
 function drawUsersTable(tbody, users) {
     tbody.innerHTML = '';
     users.forEach(user => {
         const tr = document.createElement('tr');
         tr.classList.add('clickable-row');
+        tr.setAttribute('role', 'link');
+        tr.setAttribute('tabindex', '0');
 
-        // Vi lägger till data-label så att din mobil-CSS fungerar klockrent här med!
         tr.innerHTML = `
             <td data-label='Id:'>${user.id}</td>
             <td data-label='Namn:'>${user.firstName} ${user.lastName}</td>
             <td data-label='Username:'>${user.username}</td>
         `;
 
-        tr.addEventListener('click', () => renderUserProfile(user.id));
+        tr.addEventListener('click', () => {
+            lastPageForBackButton = { page: renderUserTable };
+            renderUserProfile(user.id);
+        });
         tbody.appendChild(tr);
     });
 }
 async function renderUserProfile(userId) {
-    console.log('!!!!!! renderUserProfile !!!!!!');
     const content = document.getElementById('content-area');
-    const user = await apiFetch(`/users/${userId}`);//apiGetUserById(userId);
+    const user = await apiFetch(`/users/${userId}`);
     if (!user) return;
 
     let html = `
@@ -728,33 +842,53 @@ async function renderUserProfile(userId) {
                 <p><strong>Antal bokningar:</strong> ${user.noOfOrders}</p>
             </div>            
     `;
-
-    // Villkor för knappar (Om det inte är ens eget konto)
+    html += `
+            <button class='btn btn-standard' id='btn-cancel'>Avbryt</button>        
+            <button class='btn btn-standard' id='btn-update-user'>Uppdatera</button>
+    `;
     if (sessionStorage.getItem('userId') != userId) {
         html += `
-            <div>
-                <button class='btn-standard' onclick='showPage("view-users")'>Tillbaka</button>        
-                <button class='btn-standard' onclick='renderUpdateUserForm(${user.id})'>Uppdatera användare</button>
-                <button class='btn-standard' onclick='renderDeleteUserConfirm(${user.id})'>Ta bort användare</button>
-            </div>
-        `;//<button class='btn-standard' onclick='renderUsersBookingTable(${user.id})'>Användarens bokningar</button>
-    } else {
-        html += `
-            <div>
-                <button class='btn-standard' onclick='showPage("view-cars")'>Tillbaka</button>        
-                <button class='btn-standard' onclick='renderUpdateUserForm(${user.id})'>Uppdatera användare</button>
-            </div>
+            <button class='btn btn-standard' id='btn-bookings'>Bokningar</button>
+            <button class='btn btn-standard' id='btn-remove-user'>Ta bort</button>
         `;
     }
+    html += `</div>`;
     content.innerHTML = html;
+    const cancelBtn = content.querySelector('#btn-cancel');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            handleBackButton();
+        });
+    }
+    const updateBtn = content.querySelector('#btn-update-user');
+    if (updateBtn) {
+        updateBtn.addEventListener('click', () => {
+            lastPageForBackButton = { page: renderUserProfile, id: userId };
+            renderUpdateUserForm(user.id);
+        });
+    }
+    const bookingsBtn = content.querySelector('#btn-bookings');
+    if (bookingsBtn) {
+        bookingsBtn.addEventListener('click', () => {
+            lastPageForBackButton = { page: renderUserProfile, id: userId };
+            renderUsersBookingTable(user.id);
+        });
+    }
+    const removeBtn = content.querySelector('#btn-remove-user');
+    if (removeBtn) {
+        removeBtn.addEventListener('click', () => {
+            lastPageForBackButton = { page: renderUserProfile, id: userId };
+            renderDeleteUserConfirm(user.id);
+        });
+    }
+
 }
 async function renderUsersBookingTable(userId) {
-    console.log('----- renderUsersBookingTable ------');
     const content = document.getElementById('content-area');
     const table = document.createElement('table');
     table.classList.add('table-rows');
-
-    // === DEFINIERA KOLUMNER ===
+let bookings = await apiFetch(`/bookings/user/${userId}`);
+    
     const columns = [
         { id: 'id', label: 'Id' },
         { id: 'active', label: 'Aktiv' },
@@ -763,7 +897,6 @@ async function renderUsersBookingTable(userId) {
         { id: 'toDate', label: 'Återlämningsdatum' }
     ];
 
-    // === ANVÄND DEN NYA FUNKTIONEN ===
     const thead = createSortableThead(columns, currentBookingSortColumn, isBookingSortAscending, (column) => {
         if (currentBookingSortColumn === column) {
             isBookingSortAscending = !isBookingSortAscending;
@@ -772,27 +905,26 @@ async function renderUsersBookingTable(userId) {
             isBookingSortAscending = true;
         }
         bookings = sortData(bookings, column, isBookingSortAscending);
-        drawBookingsTable(tbody, bookings, false); // false = visa inte användar-id
+        drawBookingsTable(tbody, bookings, false, () => renderUsersBookingTable(userId));
     });
 
     const tbody = document.createElement('tbody');
     table.appendChild(thead);
     table.appendChild(tbody);
 
-    let bookings = await apiFetch(`/bookings/user/${userId}`);//apiGetBookingsByUserId(userId);
     content.innerHTML = '';
     content.appendChild(table);
 
-    drawBookingsTable(tbody, bookings, false);
-    // ALLA manuella event listeners är borttagna härifrån också!
+    drawBookingsTable(tbody, bookings, false, () => renderUsersBookingTable(userId));
 }
 
-function drawBookingsTable(tbody, bookings, showUserId) {
+function drawBookingsTable(tbody, bookings, showUserId, backPageAction = null) {
     tbody.innerHTML = '';
     bookings.forEach(booking => {
-        console.log('booking: ' + booking.id);
         const tr = document.createElement('tr');
         tr.classList.add('clickable-row');
+        tr.setAttribute('role', 'link');    // Berätta att raden fungerar som en länk
+        tr.setAttribute('tabindex', '0');
         let html = `
             <td data-label='Id'>${booking.id}</td>
             <td>${booking.active ? '🟢 Aktiv' : '🔴 Avslutad'}</td>
@@ -808,11 +940,27 @@ function drawBookingsTable(tbody, bookings, showUserId) {
             <td data-label='Slutdatum'>${booking.toDate}</td>
         `;
         tr.innerHTML = html;
-        tr.addEventListener('click', () => renderBooking(booking.id));
+
+        const navigateToBooking = () => {
+            if (backPageAction) {
+                lastPageForBackButton = { page: backPageAction, id: null };
+            } else {
+                lastPageForBackButton = { page: renderBookingsView, id: null };
+            }
+            renderBooking(booking.id);
+        };
+        tr.addEventListener('click', navigateToBooking);
+        tr.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigateToBooking();
+            }
+        });
         tbody.appendChild(tr);
     });
-} async function renderBooking(bookingId) {
-    console.log('!!!!!! renderBooking !!!!!!');
+}
+
+async function renderBooking(bookingId) {
     const content = document.getElementById('content-area');
 
     const booking = await apiFetch(`/bookings/${bookingId}`);//apiGetBookingsById(bookingId);
@@ -843,21 +991,19 @@ function drawBookingsTable(tbody, bookings, showUserId) {
                 <p><strong>Email:</strong> ${user.email}</p>
             </div>       
             <div class='booking-actions'>     
-                <button class='btn btn-standard' id='btn-back-booking'>Tillbaka</button>
+                <button class='btn btn-standard' id='btn-cancel'>Avbryt</button>
     `;
 
-    // RENDERINGS-KONTROLLER (Här fixade vi parenteserna)
     if (userRole === 'ADMIN') {
-        html += `<button class='btn btn-standard' id='btn-remove-booking'>Ta bort</button>`;
-    }
-
-    if (booking.active) {
-        html += `<button class='btn btn-standard' id='btn-end-booking'>Avsluta</button>`;
-
-        if (userRole === 'ADMIN') {
-            html += `<button class='btn btn-standard' id='btn-update-booking'>Ändra</button>`;
+        if (booking.active) {
+            html += `<button class='btn btn-standard' id='btn-end-booking'>Avsluta</button>`;
         }
+        html += `   
+            <button class='btn btn-standard' id='btn-update-booking'>Ändra</button>
+            <button class='btn btn-standard' id='btn-remove-booking'>Ta bort</button>
+        `;
     }
+
 
     html += `
             </div>
@@ -865,34 +1011,37 @@ function drawBookingsTable(tbody, bookings, showUserId) {
     `;
     content.innerHTML = html;
 
-    // === HÄNDELSELYSSNARE ===
-
-    // 1. TILLBAKA-KNAPPEN (Smart styrning baserat på vem som är inloggad)
-    const backBtn = document.getElementById('btn-back-booking');
-    if (userRole === 'ADMIN') {
-        // Admin ska ALLTID tillbaka till den stora adminvyn
-        backBtn.addEventListener('click', () => renderBookingsView());
-    } else {
-        // Vanliga användare ska tillbaka till sina egna bokningar
-        backBtn.addEventListener('click', () => renderBookingsForUser());
+    const cancelBtn = content.querySelector('#btn-cancel');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            handleBackButton();
+        });
     }
 
-    // 2. TA BORT (Kolla om knappen finns, lägg till lyssnare om den gör det)
-    const removeBtn = document.getElementById('btn-remove-booking');
+    const removeBtn = content.querySelector('#btn-remove-booking');
     if (removeBtn) {
-        removeBtn.addEventListener('click', () => renderDeleteBookingConfirm(bookingId));
+        removeBtn.addEventListener('click', () => {
+            lastPageForBackButton = { page: renderBooking, id: bookingId };
+            renderDeleteBookingConfirm(bookingId)
+        });
     }
 
-    // 3. AVSLUTA
-    const endBtn = document.getElementById('btn-end-booking');
+    const endBtn = content.querySelector('#btn-end-booking');
     if (endBtn) {
-        endBtn.addEventListener('click', () => renderEndBookingConfirm(bookingId));
+        endBtn.addEventListener('click', () => {
+            lastPageForBackButton = { page: renderBooking, id: bookingId };
+            renderEndBookingConfirm(bookingId);
+        });
     }
 
     // 4. ÄNDRA
-    const updateBtn = document.getElementById('btn-update-booking');
+    const updateBtn = content.querySelector('#btn-update-booking');
     if (updateBtn) {
-        updateBtn.addEventListener('click', () => renderUpdateBookingForm(bookingId));
+        updateBtn.addEventListener('click', () => {
+            lastPageForBackButton = { page: renderBooking, id: bookingId };
+            renderUpdateBookingForm(bookingId);
+        }
+        );
     }
 }
 async function renderUpdateUserForm(userId) {
@@ -931,7 +1080,7 @@ async function renderUpdateUserForm(userId) {
                         <input type='password' id='password2' minlength='4'>
                     </div>
                     <button type='button' id='btn-cancel' class='btn btn-standard'>Avbryt</button>
-                    <button type='submit' class='btn btn-standard'>Spara ändringar</button>
+                    <button type='submit' class='btn btn-standard'>Spara</button>
                     <p id='update-error' style='color: red; display: none;'></p>
                 </form>
             </div>
@@ -942,22 +1091,14 @@ async function renderUpdateUserForm(userId) {
             e.preventDefault(); // Hindra sidan från att laddas om
             handleUpdateUserSubmit();
         });
-        document.getElementById('btn-cancel').addEventListener('click', () => {
-            // Om en admin uppdaterar någon annan vill vi kanske gå till listan, 
-            // men om man uppdaterar sig själv går vi till profilvyn.
-            if (sessionStorage.getItem('userId') == userId) {
-                showPage('view-profile');
-            } else {
-                showPage('view-users');
-            }
+        content.querySelector('#btn-cancel').addEventListener('click', () => {
+            handleBackButton();
         });
-
     } catch (error) {
         console.error('Kunde inte ladda användareformulär:', error);
     }
 }
 function renderDeleteUserConfirm(userId) {
-    console.log(`!!!!!! renderDeleteUserConfirm för id ${userId} !!!!!!`);
     customConfirm(
         `Är du helt säker på att du vill ta bort användaren med ID ${userId}? Denna åtgärd kan inte ångras.`,
         () => {
@@ -966,9 +1107,15 @@ function renderDeleteUserConfirm(userId) {
     );
 }
 
+function renderDeleteCarConfirm(carId) {
+    customConfirm(
+        `Är du helt säker på att du vill ta bort bil med ID ${carId}? Denna åtgärd kan inte ångras.`,
+        () => {
+            handleDeleteCarSubmit(carId);
+        }
+    );
+}
 function renderEndBookingConfirm(bookingId) {
-    console.log(`!!!!!! renderEndBookingConfirm för id ${bookingId} !!!!!!`);
-
     customConfirm(
         `Är du helt säker på att du vill avsluta bokning med ID ${bookingId}?`,
         () => {
@@ -977,7 +1124,6 @@ function renderEndBookingConfirm(bookingId) {
     );
 }
 function renderDeleteBookingConfirm(bookingId) {
-    console.log(`!!!!!! renderDeleteBookingConfirm för bokning: ${bookingId} !!!!!!`);
     customConfirm(
         `Är du helt säker på att du vill ta bort bokning med ID ${bookingId}? Denna åtgärd kan inte ångras.`,
         () => {
@@ -985,19 +1131,7 @@ function renderDeleteBookingConfirm(bookingId) {
         }
     );
 }
-/*
-function renderReturnCarConfirm(carId) {
-    console.log(`!!!!!! renderReturnCarConfirm för bil: ${carId} !!!!!!`);
-    customConfirm(
-        `Är du helt säker på att du vill lämna tillbaka bil med ID ${carId}?`,
-        () => {
-            handleReturnCarSubmit(carId);
-        }
-    );
-}
-*/
 async function renderUpdateCarForm(carId) {
-    console.log(`!!!!!! renderUpdateCarForm för bil: ${carId} !!!!!!`);
     const content = document.getElementById('content-area');
 
     try {
@@ -1035,21 +1169,18 @@ async function renderUpdateCarForm(carId) {
             </div>
         `;
 
-        // 2. Koppla lyssnaren DIREKT när vi vet att elementet finns i DOM:en
         document.getElementById('update-car-form').addEventListener('submit', (e) => {
             e.preventDefault(); // Hindra sidan från att laddas om
             handleUpdateCarSubmit(carId);
         });
-        document.getElementById('btn-cancel').addEventListener('click', () => {
-            showPage('view-cars');
+        content.querySelector('#btn-cancel').addEventListener('click', () => {
+            handleBackButton();
         });
-
     } catch (error) {
         console.error('Kunde inte ladda användareformulär:', error);
     }
 }
 function renderNewCarView() {
-    console.log('!!!!!! renderNewCarView !!!!!!');
     const content = document.getElementById('content-area');
     content.innerHTML = `
             <div class='new-car-container'>
@@ -1084,12 +1215,10 @@ function renderNewCarView() {
         e.preventDefault();
         handleCreateCarSubmit();
     };
-
-    document.getElementById('btn-cancel').addEventListener('click', () => {
-        showPage('view-cars');
+    content.querySelector('#btn-cancel').addEventListener('click', () => {
+        handleBackButton();
     });
-}async function renderBookingsForUser() {
-    console.log('!!!!!! renderBookingsForUser !!!!!!');
+} async function renderBookingsForUser() {
     const content = document.getElementById('content-area');
 
     // 1. Hämta datan först av allt så vi har något att visa och sortera!
@@ -1118,10 +1247,10 @@ function renderNewCarView() {
             currentBookingSortColumn = column;
             isBookingSortAscending = true;
         }
-        
+
         // Sortera datan och rita om tabellens rader
         bookings = sortData(bookings, column, isBookingSortAscending);
-        drawBookingsTable(tbody, bookings, false);
+        drawBookingsTable(tbody, bookings, false, renderBookingsForUser);
     });
 
     // 5. Sätt ihop och tryck ut på skärmen
@@ -1132,7 +1261,7 @@ function renderNewCarView() {
     content.appendChild(table);
 
     // 6. Rita ut raderna första gången sidan laddas
-    drawBookingsTable(tbody, bookings, false);
+    drawBookingsTable(tbody, bookings, false, renderBookingsForUser);
 }
 /* ==========================================================================
    ==========================================================================
@@ -1168,7 +1297,6 @@ async function handleLoginSubmit() {
 }
 // SEKTION 3: HANDLERS
 async function handleCreateUserSubmit() {
-    console.log('!!!!!! handleCreateUserSubmit !!!!!!');
     const firstName = document.getElementById('firstName').value;
     const lastName = document.getElementById('lastName').value;
     const phone = document.getElementById('phone').value;
@@ -1208,7 +1336,6 @@ async function handleCreateUserSubmit() {
 }
 // SEKTION 3: HANDLERS
 async function handleUpdateUserSubmit() {
-    console.log('!!!!!! handleUpdateUserSubmit !!!!!!');
     const userId = document.getElementById('update-id').value;
     const firstName = document.getElementById('firstName').value;
     const lastName = document.getElementById('lastName').value;
@@ -1261,18 +1388,16 @@ async function handleUpdateUserSubmit() {
     }
 }
 async function handleDeleteUserSubmit(userId) {
-    console.log('!!!!!! handleDeleteUserSubmit !!!!!!');
 
-    // Säkerhetskoll: Ta inte bort sig själv
+
+    // Säkerhetskoll så man inte tar bort sig själv
     if (userId == sessionStorage.getItem('userId')) {
         customAlert('Du kan inte ta bort ditt eget konto!', 'negative');
         return;
     }
 
-    // Ropa på API-funktionen och VÄNTA (await) på svaret
     const response = await apiFetch(`/users/${userId}`, 'DELETE');//apiDeleteUser(userId);
 
-    // Hantera resultatet på skärmen
     if (response) {
         customAlert(`Användare med id ${userId} borttagen ur databasen.`, 'positive');
         showPage('view-users');
@@ -1281,11 +1406,10 @@ async function handleDeleteUserSubmit(userId) {
     }
 }
 async function handleDeleteBookingSubmit(bookingId) {
-    console.log('!!!!!! handleDeleteBookingSubmit !!!!!!');
-
     const response = await apiFetch(`/bookings/${bookingId}`, 'DELETE');//apiDeleteBooking(bookingId);
 
     if (response) {
+        lastPageForBackButton = { page: renderBookingsView, id: null };
         customAlert(`Bokning med id ${bookingId} borttagen ur databasen.`, 'positive');
         renderBookingsView();
     } else {
@@ -1293,12 +1417,11 @@ async function handleDeleteBookingSubmit(bookingId) {
     }
 }
 async function handleEndBookingSubmit(bookingId) {
-    console.log('!!!!!! handleEndBookingSubmit !!!!!!');
-
-    const response = await apiFetch(`/bookings/${bookingId}`, 'PUT');//apiEndBooking(bookingId);
+    const response = await apiFetch(`/bookings/return/${bookingId}`, 'PUT');
 
     if (response) {
         customAlert(`Bokning med id ${bookingId} är avslutad.`, 'positive');
+        lastPageForBackButton = { page: renderBookingsView, id: null };
         renderBooking(bookingId);
     } else {
         customAlert('Kunde inte avsluta bokningen.', 'negative');
@@ -1306,8 +1429,7 @@ async function handleEndBookingSubmit(bookingId) {
 }
 
 async function handleBookCarSubmit(carId) {
-    console.log(`!!!!!! handleBookCarSubmit för bil: ${carId} !!!!!!`);
-    const car = await apiFetch(`/cars/${carId}`);//apiGetCarById(carId);
+    const car = await apiFetch(`/cars/${carId}`);
     if (!car) return;
 
     const modalOverlay = document.createElement('div');
@@ -1342,8 +1464,6 @@ async function handleBookCarSubmit(carId) {
 
     document.body.appendChild(modalOverlay);
 
-    // CRITICAL: Eftersom din CSS startar på opacity: 0, måste vi lägga till .show 
-    // med en mikroskopisk fördröjning för att animationen ska kicka igång!
     setTimeout(() => {
         modalOverlay.classList.add('show');
     }, 10);
@@ -1378,7 +1498,6 @@ async function handleBookCarSubmit(carId) {
 
 }
 async function handleUpdateCarSubmit(carId) {
-    console.log(`!!!!!! handleUpdateCarSubmit för bil: ${carId} !!!!!!`);
     const name = document.getElementById('name').value;
     const model = document.getElementById('model').value;
     const type = document.getElementById('type').value;
@@ -1414,12 +1533,8 @@ async function handleUpdateCarSubmit(carId) {
 }
 
 async function handleDeleteCarSubmit(carId) {
-    console.log('!!!!!! handleDeleteCarSubmit !!!!!!');
+    const response = await apiFetch(`/cars/${carId}`, 'DELETE');
 
-    // Ropa på API-funktionen och VÄNTA (await) på svaret
-    const response = await apiFetch(`/cars/${carId}`, 'DELETE');//apiDeleteCar(carId);
-
-    // Hantera resultatet på skärmen
     if (response) {
         customAlert(`Bil med id ${carId} borttagen ur databasen.`, 'positive');
         showPage('view-cars');
@@ -1429,12 +1544,9 @@ async function handleDeleteCarSubmit(carId) {
 }
 
 async function handleCreateCarSubmit() {
-    console.log('!!!!!! handleCreateCarSubmit !!!!!!');
-
     const errorMsg = document.getElementById('car-error');
     errorMsg.style.display = 'none';
 
-    // 1. Samla in all data från skärmen
     const formData = new FormData();
     formData.append('name', document.getElementById('name').value);
     formData.append('model', document.getElementById('model').value);
@@ -1450,10 +1562,8 @@ async function handleCreateCarSubmit() {
         formData.append('image', imageInput.files[0]);
     }
 
-    // 2. Skicka datan till API-funktionen och vänta på svar
-    const car = await apiFetch(`/cars`, 'POST', formData, true);//apiCreateCar(formData);
+    const car = await apiFetch(`/cars`, 'POST', formData, true);
 
-    // 3. Hantera resultatet på skärmen baserat på hur det gick
     if (car) {
         customAlert('Bilen är sparad!', 'positive');
         renderCarDetails(car.id);
@@ -1477,7 +1587,6 @@ function closeMobileMenu() {
 }
 
 function initApp() {
-    console.log('!!!!!! initApp !!!!!!');
     const savedRole = sessionStorage.getItem('userRole');
     if (!savedRole) {
         sessionStorage.clear();

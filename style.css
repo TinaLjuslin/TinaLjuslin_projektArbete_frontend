@@ -37,6 +37,10 @@ body {
     color: var(--wigell-color);
     background-color: var(--background-main-color);
 }
+/* Detta döljer mobilsorteringen på vanliga datorskärmar */
+.admin-mobile-sort {
+    display: none !important; /* Lägg till !important om något annat i din CSS försöker tvinga fram den */
+}
 /********************************************************
     SIDEBAR (Anpassad för knappar)
 *********************************************************/
