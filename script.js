@@ -1,24 +1,18 @@
 /*
-Får jag tillbaka carId så jag kan visa bara den bilen och inte listan
-avbryt eller gå tillbaka om man klickat på bil
-om man är inloggad som user och klickar på tillbaka till listan efter att ha uppdaterat sin profil så får man se listan, det ska man INTE!
-lägg till tillbaka-knapp på allt
 kolla fokus och tab
-tillbaka-knapp i renderUsersBookingTable
 user bokar bil så kommer man tillbaka till fel ställe
-om en admin klickar på en bokning som inte finns får man inget felmeddelande
+om user user uppdaterar sin profil så krashar det, hens username uppdateras till mailen
 
+ Säkra upp relationerna dynamiskt och ge specifika texter
+    const carName = booking.car 
+        ? `${booking.car.name} ${booking.car.model}` 
+        : `⚠️ Bil (ID: ${booking.carId || 0}) finns inte i databasen längre`;
 
-**
-     * Hämtar alla bokningar för den inloggade användaren.
-     * Ingen path-variabel behövs, servern tar userId ur principal.
-     * Returnerar 404 om ingen bokning hittas.
-     *
-    //Testad
-    @PreAuthorize("isAuthenticated()")
-    @GetMapping("/me")
-    public ResponseEntity<List<Booking>> getMyBookings(
-    */
+    const userName = booking.user 
+        ? `${booking.user.firstName} ${booking.user.lastName}` 
+        : `⚠️ Kund (ID: ${booking.userId || 0}) finns inte i databasen längre`;
+
+*/
 
 /* ==========================================================================
    ==========================================================================
@@ -37,6 +31,10 @@ const menuItems = [
     { name: 'Min profil', view: 'view-profile', roles: ['USER', 'ADMIN'] },
     { name: 'Logga ut', view: 'view-logout', roles: ['USER', 'ADMIN'] }
 ];
+const urlLogin = 'http://localhost:8080/api/v1/auth/login';
+const urlCars = 'http://localhost:8080/api/v1/cars';
+const urlUsers = 'http://localhost:8080/api/v1/users';
+const urlBookings = 'http://localhost:8080/api/v1/bookings';
 
 let currentBookingFilter = 'all';
 let currentUserSortColumn = 'id';
@@ -52,28 +50,9 @@ let isCarSortAscending = true;
    1. API / FETCH FUNCTIONS (Enbart kommunikation med din Spring Boot backend)
    ==========================================================================
    ========================================================================== */
-
-async function apiLogin(username, password) {
-    try {
-        const response = await fetch(`http://localhost:8080/api/v1/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        if (response.ok) {
-            const basicAuthString = 'Basic ' + btoa(username + ':' + password);
-            sessionStorage.setItem('basicAuth', basicAuthString);
-            return await response.json();
-        }
-        return null;
-    } catch (error) {
-        console.error('Nätverksfel vid inloggning:', error);
-        customAlert('Serverfel.', 'negative');
-        return null;
-    }
-}
-
+/*
 async function apiFetch(endpoint, method = 'GET', body = null, isMultipart = false) {
+    console.log('apiFetch');
     const headers = { 'Authorization': sessionStorage.getItem('basicAuth') };
     if (!isMultipart) headers['Content-Type'] = 'application/json';
 
@@ -88,8 +67,9 @@ async function apiFetch(endpoint, method = 'GET', body = null, isMultipart = fal
             alert('Backend nekar oss tillträde.');
             return null;
         }
-
-        // Om metoden är DELETE eller PUT (retur) kanske vi bara vill ha responsen, annars json
+if (response.status === 404 && method === 'GET') {
+            return [];
+        }
         if (!response.ok) return null;
 
         const contentType = response.headers.get("content-type");
@@ -102,6 +82,424 @@ async function apiFetch(endpoint, method = 'GET', body = null, isMultipart = fal
         customAlert('Serverfel.', 'negative');
         return null;
     }
+}*/async function apiLogin(username, password) {
+    console.log('apiLogin');
+    try {
+        const response = await fetch(`http://localhost:8080/api/v1/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        if (response.ok) {
+            const basicAuthString = 'Basic ' + btoa(username + ':' + password);
+            sessionStorage.setItem('basicAuth', basicAuthString);
+            return await response.json();
+        }
+        return null;
+    } catch (error) {
+        console.error('Nätverksfel vid inloggning:', error);
+        customAlert('Serverfel. Kunde inte ansluta till inloggningstjänsten.', 'negative');
+        return null;
+    }
+}
+
+/////////////  CARS  ////////////////////////
+async function apiGetCars() {
+    console.log('!!!!!! apiGetCars !!!!!!');
+    try {
+        const response = await fetch(`${urlCars}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        return response.ok ? await response.json() : null;
+    } catch (error) {
+        console.error("Nätverksfel vid apiGetCars", error);
+        customAlert("Serverfel. Kontrollera att din backend är igång!", 'negative');
+        return null;
+    }
+}
+
+async function apiGetCarById(carId) {
+    console.log(`!!!!!! apiGetCarById(${carId}) !!!!!!`);
+    try {
+        const response = await fetch(`${urlCars}/${carId}`, {
+            method: 'GET',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': sessionStorage.getItem('basicAuth') 
+            }
+        });
+        if (response.ok) {
+            return await response.json();
+        } else {
+            customAlert(`Bil med id ${carId} hittades inte.`, 'negative');
+            return null;
+        }
+    } catch (error) {
+        console.error("Nätverksfel vid apiGetCarById:", error);
+        customAlert("Serverfel. Kontrollera att din backend är igång!", 'negative');
+        return null;
+    }
+}
+
+async function apiCreateCar(formData) {
+    console.log('!!!!!! apiCreateCar !!!!!!');
+    try {
+        const response = await fetch(`${urlCars}`, {
+            method: 'POST',
+            headers: { 'Authorization': sessionStorage.getItem('basicAuth') },
+            body: formData 
+        });
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel i apiCreateCar:", error);
+        customAlert("Serverfel. Kunde inte spara bilen.", 'negative');
+        return null;
+    }
+}
+
+async function apiUpdateCar(carId, carData) {
+    console.log(`!!!!!! apiUpdateCar(${carId}) !!!!!!`);
+    try {
+        const response = await fetch(`${urlCars}/${carId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth')
+            },
+            body: JSON.stringify(carData)
+        });
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel vid apiUpdateCar:", error);
+        customAlert("Serverfel. Ändringarna kunde inte sparas.", 'negative');
+        return null;
+    }
+}
+
+async function apiDeleteCar(carId) {
+    try {
+        const response = await fetch(`${urlCars}/${carId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth')
+            }
+        });
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel vid apiDeleteCar:", error);
+        customAlert("Serverfel. Bilen kunde inte raderas.", 'negative');
+        return null;
+    }
+}
+
+///////////////  BOOKINGS  ///////////////
+async function apiGetBookings() {
+    console.log('!!!!!! apiGetBookings !!!!!!');
+    try {
+        const response = await fetch(`${urlBookings}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json', 'Authorization': sessionStorage.getItem('basicAuth') }
+        });
+
+        // Smart fix: Om backend ger 404 för att listan är helt tom, returnera en tom array istället för null
+        if (response.status === 404) return [];
+
+        return response.ok ? await response.json() : null;
+    } catch (error) {
+        console.error("Nätverksfel vid apiGetBookings:", error);
+        customAlert("Serverfel. Kontrollera att din backend är igång!", 'negative');
+        return null;
+    }
+}
+
+async function apiGetBookingById(bookingId) {
+    console.log(`!!!!!! apiGetBookingById() !!!!!!`);
+    try {
+        const response = await fetch(`${urlBookings}/${bookingId}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json', 'Authorization': sessionStorage.getItem('basicAuth') }
+        });
+        if (response.ok) {
+            return await response.json();
+        } else {
+            customAlert(`Bokning med id ${bookingId} hittades inte.`, 'negative');
+            return null;
+        }
+    } catch (error) {
+        console.error("Nätverksfel vid apiGetBookingById:", error);
+        customAlert("Serverfel. Kontrollera att din backend är igång!", 'negative');
+        return null;
+    }
+}
+
+async function apiGetBookingsForLoggedInUser() {
+    console.log(`!!!!!! apiGetBookingsForLoggedInUser() !!!!!!`);
+    try {
+        const response = await fetch(`${urlBookings}/me`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth')
+            }
+        });
+        
+        // FIX: Om användaren inte har några bokningar ännu skickar backend 404.
+        // Vi returnerar en tom array [] istället för att visa ett felmeddelande!
+        if (response.status === 404) {
+            return [];
+        }
+
+        if (response.ok) {
+            return await response.json();
+        } else {
+            customAlert('Kunde inte hämta dina bokningar.', 'negative');
+            return null;
+        }
+    } catch (error) {
+        console.error("Nätverksfel vid apiGetBookingsorLoggedInUser:", error);
+        customAlert("Serverfel. Kontrollera att din backend är igång!", 'negative');
+        return null;
+    }
+}
+
+async function apiGetBookingsByUserId(userId) {
+    console.log(`!!!!!! apiGetBookingsByUserId(${userId}) !!!!!!`);
+    try {
+        const response = await fetch(`${urlBookings}/user/${userId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth')
+            }
+        });
+
+        if (response.status === 404) {
+            return []; 
+        }
+
+        if (response.ok) {
+            return await response.json();
+        } else {
+            customAlert(`Kunde inte hämta bokningar för användare med id ${userId}.`, 'negative');
+            return null;
+        }
+    } catch (error) {
+        console.error("Nätverksfel vid apiGetBookingsByUserId:", error);
+        customAlert("Serverfel. Kontrollera att din backend är igång!", 'negative');
+        return null;
+    }
+}
+
+async function apiGetActiveBookings() {
+    console.log(`!!!!!! apiGetActiveBookings() !!!!!!`);
+    try {
+        const response = await fetch(`${urlBookings}/active`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth')
+            }
+        });
+        
+        if (response.status === 404) {
+            return [];
+        }
+
+        if (response.ok) {
+            return await response.json();
+        } else {
+            customAlert('Kunde inte hämta aktiva bokningar.', 'negative');
+            return null;
+        }
+    } catch (error) {
+        console.error("Nätverksfel vid apiGetActiveBookings:", error);
+        customAlert("Serverfel. Kunde inte hämta aktiva bokingar", 'negative');
+        return null;
+    }
+}
+
+async function apiCreateBooking(startDate, endDate, carId, userId) {
+    console.log('!!!!!! apiCreateBooking !!!!!!');
+    const bookingData = {
+        fromDate: startDate,
+        toDate: endDate,
+        userId: parseInt(userId),
+        carId: parseInt(carId)
+    };
+
+    try {
+        const response = await fetch(`${urlBookings}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth')
+            },
+            body: JSON.stringify(bookingData)
+        });
+        
+        if (response.status === 403) {
+            const errorText = await response.text();
+            console.error("--- 403 FORBIDDEN DETALJER ---", errorText);
+            customAlert("Nekat tillträde. Du har inte behörighet att skapa denna bokning.", 'negative');
+        }
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel vid apiCreateBooking:", error);
+        customAlert("Serverfel. Det gick inte att skapa bokningen.", 'negative');
+        return null;
+    }
+}
+
+async function apiBookingReturnCar(bookingId) {
+    console.log(`!!!!!! apiBookingReturnCar(${bookingId}) !!!!!!`);
+    try {
+        const response = await fetch(`${urlBookings}/return/${bookingId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': sessionStorage.getItem('basicAuth')
+            }
+        });
+
+        if (response.status === 404) {
+            customAlert(`Bokning med ID ${bookingId} hittades inte på servern.`, 'negative');
+            return null;
+        }
+
+        if (!response.ok) {
+            customAlert('Kunde inte avsluta bokningen. Ett serverfel uppstod.', 'negative');
+            return null;
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error("Nätverksfel vid apiBookingReturnCar:", error);
+        customAlert('Kunde inte ansluta till servern. Kontrollera din anslutning.', 'negative');
+        return null;
+    }
+}
+async function apiUpdateBooking(bookingId, bookingData) {
+    console.log(`apiUpdateBooking`);
+    try {
+        const response = await fetch(`${urlBookings}/${bookingId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth')
+            },
+            body: JSON.stringify(bookingData)
+        });
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel vid apiUpdateBooking:", error);
+        customAlert("Serverfel. Det gick inte att uppdatera bokningen.", 'negative');
+        return null;
+    }
+}
+
+async function apiDeleteBooking(bookingId) {
+    try {
+        const response = await fetch(`${urlBookings}/${bookingId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth')
+            }
+        });
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel vid apiDeleteBooking:", error);
+        customAlert("Serverfel. Bokningen kunde inte raderas.", 'negative');
+        return null;
+    }
+}
+////////////////  USER  /////////////////
+async function apiGetUsers() {
+    console.log('!!!!!! apiGetUsers !!!!!!');
+    try {
+        const response = await fetch(`${urlUsers}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json', 'Authorization': sessionStorage.getItem('basicAuth') }
+        });
+        return response.ok ? await response.json() : null;
+    } catch (error) {
+        console.error("Nätverksfel vid apiGetUsers:", error);
+        customAlert("Serverfel. Kontrollera att din backend är igång!", 'negative');
+        return null;
+    }
+}
+
+async function apiGetUserById(userId) {
+    console.log(`!!!!!! apiGetUserById(${userId}) !!!!!!`);
+    try {
+        const response = await fetch(`${urlUsers}/${userId}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json', 'Authorization': sessionStorage.getItem('basicAuth') }
+        });
+        if (response.ok) {
+            return await response.json();
+        } else {
+            customAlert(`Användare med id ${userId} hittades inte.`, 'negative');
+            return null;
+        }
+    } catch (error) {
+        console.error("Nätverksfel vid apiGetUserById:", error);
+        customAlert("Serverfel. Kontrollera att din backend är igång!", 'negative');
+        return null;
+    }
+}
+
+async function apiCreateUser(userData) {
+    console.log('!!!!!! apiCreateUser !!!!!!');
+    try {
+        const response = await fetch(`${urlUsers}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData)
+        });
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel vid apiCreateUser:", error);
+        customAlert("Kunde inte registrera konto. Kontrollera nätverket.", 'negative');
+        return null;
+    }
+}
+
+async function apiUpdateUser(userId, userData) {
+    console.log(`!!!!!! apiUpdateUser(${userId}) !!!!!!`);
+    try {
+        const response = await fetch(`${urlUsers}/${userId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth')
+            },
+            body: JSON.stringify(userData)
+        });
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel vid apiUpdateUser:", error);
+        customAlert("Serverfel. Det gick inte att uppdatera profilen.", 'negative');
+        return null;
+    }
+}
+
+async function apiDeleteUser(userId) {
+    try {
+        const response = await fetch(`${urlUsers}/${userId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': sessionStorage.getItem('basicAuth')
+            }
+        });
+        return response;
+    } catch (error) {
+        console.error("Nätverksfel vid apiDeleteUser:", error);
+        customAlert("Serverfel. Användaren kunde inte raderas.", 'negative');
+        return null;
+    }
 }
 /* ==========================================================================
    ==========================================================================
@@ -110,7 +508,8 @@ async function apiFetch(endpoint, method = 'GET', body = null, isMultipart = fal
    ========================================================================== */
 
 async function updateUserSession(userId) {
-    const user = await apiFetch(`/users/${userId}`);
+    console.log('updateUserSession');
+    const user = await apiGetUserById(userId);
     if (user) {
         sessionStorage.setItem('firstName', user.firstName);
         sessionStorage.setItem('lastName', user.lastName);
@@ -120,6 +519,7 @@ async function updateUserSession(userId) {
     }
 }
 function customAlert(message, type = 'positive') {
+    console.log('customAlert');
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay show';
     const btnClass = type === 'negative' ? 'btn-negative' : 'btn-positive';
@@ -145,6 +545,7 @@ function customAlert(message, type = 'positive') {
 }
 
 function customConfirm(message, onConfirm) {
+    console.log('customConfirm');
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay show';
 
@@ -182,7 +583,7 @@ function customConfirm(message, onConfirm) {
  * Generell funktion för att sortera en array av objekt baserat på en kolumn.
  */
 function sortData(array, column, isAscending) {
-    // Vi returnerar en sorterad KOPIA av arrayen för att inte störa originaldata i onödan
+    console.log('sortData');
     return [...array].sort((a, b) => {
         let valA = a[column];
         let valB = b[column];
@@ -207,6 +608,7 @@ function sortData(array, column, isAscending) {
     });
 }
 function calculateTotalPrice(fromDateStr, toDateStr, pricePerDay) {
+    console.log('calculateTotalPrice');
     // 1. Gör om datumsträngarna (t.ex. '2026-05-22') till JavaScript Datum-objekt
     const start = new Date(fromDateStr);
     const end = new Date(toDateStr);
@@ -230,6 +632,7 @@ function calculateTotalPrice(fromDateStr, toDateStr, pricePerDay) {
 }
 
 function createSortableThead(columns, currentSortCol, isAsc, onSortChange) {
+    console.log('createSortableThead');
     const thead = document.createElement('thead');
 
     // Generera alla <th> dynamiskt från en array av kolumner
@@ -260,6 +663,7 @@ function createSortableThead(columns, currentSortCol, isAsc, onSortChange) {
     return thead;
 }
 function handleBackButton() {
+    console.log('handleBackButton');
     if (lastPageForBackButton) {
         lastPageForBackButton.page(lastPageForBackButton.id);
     } else {
@@ -273,6 +677,7 @@ function handleBackButton() {
    ========================================================================== */
 
 function renderMenu(userRole) {
+    console.log('renderMenu');
     const menuContainer = document.getElementById('main-menu');
     menuContainer.innerHTML = '';
 
@@ -289,6 +694,7 @@ function renderMenu(userRole) {
 }
 
 function showPage(viewId) {
+    console.log('showPage');
     const allButtons = document.querySelectorAll('.sidebar button');
     allButtons.forEach(btn => btn.classList.remove('active'));
 
@@ -338,6 +744,7 @@ function showPage(viewId) {
 }
 
 function renderLoginView() {
+    console.log('renderLoginView');
     const content = document.getElementById('content-area');
     content.innerHTML = `
         <div class='login-container'>
@@ -361,8 +768,8 @@ function renderLoginView() {
         e.preventDefault();
         handleLoginSubmit();
     };
-}
-async function renderBookingsView() {
+}async function renderBookingsView() {
+    console.log('renderBookingsView');
     const content = document.getElementById('content-area');
     let bookings = [];
 
@@ -374,62 +781,75 @@ async function renderBookingsView() {
                 <button id='btn-booking-active' class='btn-filter ${currentBookingFilter === 'active' ? 'active' : ''}'>Enbart aktiva</button>
             </div>
         </div>
-        <div class='table-container'id='bookings-table-container'></div>
+        <div class='table-container' id='bookings-table-container'></div>
     `;
 
     const tableContainer = document.getElementById('bookings-table-container');
-    const table = document.createElement('table');
-    table.classList.add('table-rows');
 
-    // Vi måste skapa vårat tbody-element så drawBookingsTable har något att rita i
-    const tbody = document.createElement('tbody');
-
-    const columns = [
-        { id: 'id', label: 'Id' },
-        { id: 'active', label: 'Aktiv' },
-        { id: 'carId', label: 'Bil' },
-        { id: 'fromDate', label: 'Startdatum' },
-        { id: 'toDate', label: 'Återlämningsdatum' }
-    ];
-
-    // 1. Skapa thead med den nya återanvändbara funktionen.
-    // Callback-funktionen körs automatiskt inifrån createSortableThead när någon klickar/trycker på en rubrik!
-    const thead = createSortableThead(columns, currentBookingSortColumn, isBookingSortAscending, (column) => {
-        if (currentBookingSortColumn === column) {
-            isBookingSortAscending = !isBookingSortAscending;
-        } else {
-            currentBookingSortColumn = column;
-            isBookingSortAscending = true;
-        }
-        bookings = sortData(bookings, column, isBookingSortAscending);
-        drawBookingsTable(tbody, bookings, true, renderBookingsView);
-    });
-
-    // 2. Montera ihop tabellen och lägg till den i containern
-    table.appendChild(thead);
-    table.appendChild(tbody);
-    tableContainer.appendChild(table);
-
-    // 3. Hämta startdata baserat på det filter som var aktivt (eller simulera ett klick på förvalt filter)
     if (currentBookingFilter === 'active') {
-        bookings = await apiFetch(`/bookings/active`);//apiGetActiveBookings();
+        bookings = await apiGetActiveBookings();
     } else {
         currentBookingFilter = 'all';
-        bookings = await apiFetch(`/bookings`);//apiGetBookings();
+        bookings = await apiGetBookings();
     }
 
-    if (!bookings) return;
-    drawBookingsTable(tbody, bookings, true, renderBookingsView);
+    if (!bookings) return; 
 
-    // === FILTER-KNAPPARNAS EVENT LISTENERS ===
+    function updateTableDisplay() {
+        tableContainer.innerHTML = ''; // Rensa behållaren först
+
+        if (bookings.length === 0) {
+            // Om listan är tom, rita inte ut tabellrubrikerna, visa denna text istället:
+            const message = currentBookingFilter === 'active' 
+                ? 'Det finns inga aktiva bokningar för tillfället.' 
+                : 'Det finns inga bokningar registrerade i systemet.';
+            
+            tableContainer.innerHTML = `<p class='no-data-msg' style='padding: 20px; font-style: italic; color: #666;'>${message}</p>`;
+            return;
+        }
+
+        // Om det fanns data, skapa och montera tabellen precis som förut
+        const table = document.createElement('table');
+        table.classList.add('table-rows');
+        const tbody = document.createElement('tbody');
+
+        const columns = [
+            { id: 'id', label: 'Id' },
+            { id: 'active', label: 'Aktiv' },
+            { id: 'carId', label: 'Bil' },
+            { id: 'userId', label: 'Kund' },
+            { id: 'fromDate', label: 'Startdatum' },
+            { id: 'toDate', label: 'Återlämningsdatum' }
+        ];
+
+        const thead = createSortableThead(columns, currentBookingSortColumn, isBookingSortAscending, (column) => {
+            if (currentBookingSortColumn === column) {
+                isBookingSortAscending = !isBookingSortAscending;
+            } else {
+                currentBookingSortColumn = column;
+                isBookingSortAscending = true;
+            }
+            bookings = sortData(bookings, column, isBookingSortAscending);
+            drawBookingsTable(tbody, bookings, true, renderBookingsView);
+        });
+
+        table.appendChild(thead);
+        table.appendChild(tbody);
+        tableContainer.appendChild(table);
+
+        drawBookingsTable(tbody, bookings, true, renderBookingsView);
+    }
+
+    updateTableDisplay();
+
     document.getElementById('btn-booking-all').addEventListener('click', async () => {
         currentBookingFilter = 'all';
         document.getElementById('btn-booking-all').classList.add('active');
         document.getElementById('btn-booking-active').classList.remove('active');
 
-        bookings = await apiFetch(`/bookings`);//apiGetBookings();
+        bookings = await apiGetBookings();
         if (!bookings) return;
-        drawBookingsTable(tbody, bookings, true, renderBookingsView);
+        updateTableDisplay();
     });
 
     document.getElementById('btn-booking-active').addEventListener('click', async () => {
@@ -437,12 +857,13 @@ async function renderBookingsView() {
         document.getElementById('btn-booking-all').classList.remove('active');
         document.getElementById('btn-booking-active').classList.add('active');
 
-        bookings = await apiFetch(`/bookings/active`);//apiGetActiveBookings();
+        bookings = await apiGetActiveBookings();
         if (!bookings) return;
-        drawBookingsTable(tbody, bookings, true, renderBookingsView);
+        updateTableDisplay();
     });
 }
 function renderNewUserView() {
+    console.log('renderNewUserView');
     const content = document.getElementById('content-area');
     content.innerHTML = `
         <div class='new-user-container'>
@@ -466,7 +887,7 @@ function renderNewUserView() {
                 </div>
                 <button type='button' id='btn-cancel' class='btn btn-standard'>Avbryt</button>
                 <button type='submit' class='btn btn-standard'>Skapa</button>
-                <p id='login-error' style='color: red; display: none;'>Kunde inte skapa konto.</p>
+                <p id='create-user-error' style='color: red; display: none;'>Kunde inte skapa konto.</p>
             </form>
         </div>
     `;
@@ -481,8 +902,9 @@ function renderNewUserView() {
     });
 }
 async function renderCarsView() {
+    console.log('renderCarsView');
     const content = document.getElementById('content-area');
-    const cars = await apiFetch(`/cars`);
+    const cars = await apiGetCars();
 
     if (!cars || cars.length === 0) {
         content.innerHTML = '<p>Inga bilar hittades.</p>';
@@ -551,6 +973,7 @@ async function renderCarsView() {
 }
 
 function renderAdminCarsTable(cars) {
+    console.log('renderAdminCarsTable');
     const container = document.getElementById('admin-car-table-container');
     container.innerHTML = '';
     if (currentCarSortColumn) {
@@ -588,6 +1011,7 @@ function renderAdminCarsTable(cars) {
     drawCarsTableRows(tbody, cars);
 }
 function drawCarsTableRows(tbody, cars) {
+    console.log('drawCarsTableRows');
     tbody.innerHTML = '';
     cars.forEach(car => {
         const tr = document.createElement('tr');
@@ -618,6 +1042,7 @@ function drawCarsTableRows(tbody, cars) {
     });
 }
 function renderCarCards(carsArray) {
+    console.log('renderCarCards');
     const listElement = document.getElementById('car-list');
     if (!listElement) return;
     listElement.innerHTML = '';
@@ -666,7 +1091,8 @@ function renderCarCards(carsArray) {
 }
 
 async function renderCarDetails(carId) {
-    const car = await apiFetch(`/cars/${carId}`);
+    console.log('renderCarDetails');
+    const car = await apiGetCarById(carId);
     if (!car) return;
 
     const content = document.getElementById('content-area');
@@ -699,48 +1125,65 @@ async function renderCarDetails(carId) {
     } else if (userRole === 'ADMIN') {
         html += `
             <button id='btn-update-car' class='btn-standard btn'>Uppdatera</button>
-            `
-        /*if (car.booked) { IMPLEMENTERA IGEN OM JAG HINNER, TILLBAKAKNAPPEN STÄLLER TILL DET
+            `;
+        if (!car.booked) { 
             html += `
             <button id='btn-return-car' class='btn-negative btn'>Lämna tillbaka bil</button>
             `
-        }*/
-        html += `
+        } else {
+            html += `
             <button id='btn-delete-car' class='btn-negative btn'>Ta bort</button>
-        </div>
-        `;
+            `;
+        }
+
     }
+    html += `</div>
+        `;
 
     content.innerHTML = html;
-    content.querySelector('#btn-cancel').addEventListener('click', () => {
-        handleBackButton();
-    });
-    if (userRole === 'USER' && !car.booked) {
-        document.getElementById('btn-book-car').addEventListener('click', () => {
-            lastPageForBackButton = {
-                page: renderCarDetails,
-                id: carId
-            };
+
+    const cancelBtn = content.querySelector('#btn-cancel');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            handleBackButton();
+        });
+    }
+    const bookCarBtn = content.querySelector('#btn-book-car');
+    if (bookCarBtn) {
+        bookCarBtn.addEventListener('click', () => {
+            lastPageForBackButton = {page: renderCarDetails, id: carId};
             handleBookCarSubmit(carId);
         });
     }
-    if (userRole === 'ADMIN') {
-        document.getElementById('btn-update-car').addEventListener('click', () => {
+    const updateCarBtn = content.querySelector('#btn-update-car');
+    if (updateCarBtn) {
+        updateCarBtn.addEventListener('click', () => {
             lastPageForBackButton = { page: renderCarDetails, id: carId };
             renderUpdateCarForm(carId)
         });
-        document.getElementById('btn-delete-car').addEventListener('click', () => {
+    }
+
+    const deleteCarBtn = content.querySelector('#btn-delete-car');
+    if (deleteCarBtn) {
+        deleteCarBtn.addEventListener('click', () => {
             lastPageForBackButton = { page: renderCarDetails, id: carId };
             renderDeleteCarConfirm(carId)
         });
-        /*if (car.booked) {
-            document.getElementById('btn-return-car').addEventListener('click', () => renderReturnCarConfirm(carId));
-        }*/
     }
-} async function renderUserTable() {
+
+    const returnCarBtn = content.querySelector('#btn-return-car');
+    if (returnCarBtn) {
+        returnCarBtn.addEventListener('click', () => {
+            lastPageForBackButton = { page: renderCarDetails, id: carId };
+            renderEndBookingConfirm(carId);
+        });
+    }
+}
+async function renderUserTable() {
+    console.log('renderUserTable');
     const content = document.getElementById('content-area');
 
-    let users = await apiFetch('/users', 'GET');
+    let users = await apiGetUsers();
     if (!users) {
         content.innerHTML = '<p>Kunde inte ladda användare.</p>';
         return;
@@ -806,6 +1249,7 @@ async function renderCarDetails(carId) {
     }
 }
 function drawUsersTable(tbody, users) {
+    console.log('drawUsersTable');
     tbody.innerHTML = '';
     users.forEach(user => {
         const tr = document.createElement('tr');
@@ -827,8 +1271,9 @@ function drawUsersTable(tbody, users) {
     });
 }
 async function renderUserProfile(userId) {
+    console.log('renderUserProfil');
     const content = document.getElementById('content-area');
-    const user = await apiFetch(`/users/${userId}`);
+    const user = await apiGetUserById(userId);
     if (!user) return;
 
     let html = `
@@ -884,11 +1329,28 @@ async function renderUserProfile(userId) {
 
 }
 async function renderUsersBookingTable(userId) {
+    console.log('renderUsersBookingTable');
     const content = document.getElementById('content-area');
     const table = document.createElement('table');
     table.classList.add('table-rows');
-let bookings = await apiFetch(`/bookings/user/${userId}`);
-    
+    let bookings = await apiGetBookingsByUserId(userId);//apiFetch(`/bookings/user/${userId}`);
+    if (!bookings) {
+        return; 
+    }
+    if (bookings.length === 0) {
+        content.innerHTML = `
+            <div class='info-box'>
+                <h2>Användarens bokningar</h2>
+                <p>Denna användare har inga registrerade bokningar för tillfället.</p>
+                <button id='btn-back' class='btn btn-standard' style='margin-top: 15px;'>Tillbaka</button>
+            </div>
+        `;
+        
+        content.querySelector('#btn-back').addEventListener('click', () => {
+            handleBackButton();
+        });
+        return;
+    }
     const columns = [
         { id: 'id', label: 'Id' },
         { id: 'active', label: 'Aktiv' },
@@ -919,6 +1381,7 @@ let bookings = await apiFetch(`/bookings/user/${userId}`);
 }
 
 function drawBookingsTable(tbody, bookings, showUserId, backPageAction = null) {
+    console.log('drawBookingsTable');
     tbody.innerHTML = '';
     bookings.forEach(booking => {
         const tr = document.createElement('tr');
@@ -961,20 +1424,20 @@ function drawBookingsTable(tbody, bookings, showUserId, backPageAction = null) {
 }
 
 async function renderBooking(bookingId) {
+    console.log('renderBooking');
     const content = document.getElementById('content-area');
 
-    const booking = await apiFetch(`/bookings/${bookingId}`);//apiGetBookingsById(bookingId);
+    const booking = await apiGetBookingById(bookingId);
     if (!booking) return;
 
     const [car, user] = await Promise.all([
-        apiFetch(`/cars/${booking.carId}`),
-        apiFetch(`/users/${booking.userId}`)
+        apiGetCarById(booking.carId),
+        apiGetUserById(booking.userId)
     ]); if (!car || !user) return;
 
     const status = booking.active ? 'Pågående' : 'Avslutad';
     const price = calculateTotalPrice(booking.fromDate, booking.toDate, car.price);
 
-    // Hämta roll och ID en gång så blir koden lättare att läsa
     const userRole = sessionStorage.getItem('userRole');
     const loggedInUserId = sessionStorage.getItem('userId');
 
@@ -1003,8 +1466,6 @@ async function renderBooking(bookingId) {
             <button class='btn btn-standard' id='btn-remove-booking'>Ta bort</button>
         `;
     }
-
-
     html += `
             </div>
         </div>
@@ -1034,7 +1495,6 @@ async function renderBooking(bookingId) {
         });
     }
 
-    // 4. ÄNDRA
     const updateBtn = content.querySelector('#btn-update-booking');
     if (updateBtn) {
         updateBtn.addEventListener('click', () => {
@@ -1043,13 +1503,63 @@ async function renderBooking(bookingId) {
         }
         );
     }
-}
-async function renderUpdateUserForm(userId) {
-    console.log('!!!!!! renderUpdateUserForm !!!!!!');
+}async function renderUpdateBookingForm(bookingId) {
+    console.log('renderUpdateBookingForm');
     const content = document.getElementById('content-area');
 
     try {
-        const user = await apiFetch(`/users/${userId}`);//apiGetUserById(userId);
+        const booking = await apiGetBookingById(bookingId);
+        if (!booking) return; // apiGetBookingById visar felmeddelande om bokningen inte finns
+
+        content.innerHTML = `
+            <div class='update-booking-container'>
+                <h2>Uppdatera bokning: ${booking.id}</h2>
+                <form id='update-booking-form'>
+                    <input type='hidden' id='update-id' value='${booking.id}'>
+
+                    <div class='form-group'>
+                        <label for='startDate'>Från datum:</label>
+                        <input type='date' id='startDate' value='${booking.fromDate || ''}' required>
+                        
+                        <label for='endDate'>Till datum:</label>
+                        <input type='date' id='endDate' value='${booking.toDate || ''}' required>
+                        
+                        <label for='userId'>Kund id:</label>
+                        <input type='text' id='userId' value='${booking.userId || ''}' required>
+                        
+                        <label for='carId'>Bil id:</label>
+                        <input type='text' id='carId' value='${booking.carId || ''}' required>
+                        <label for='active'>Aktiv bokning:</label>
+                            <select id='active' class='form-control' required>
+                                <option value='true' ${booking.active === true ? 'selected' : ''}>Ja (Aktiv)</option>
+                                <option value='false' ${booking.active === false ? 'selected' : ''}>Nej (Avslutad)</option>
+                            </select>
+                    </div>
+                    <button type='button' id='btn-cancel' class='btn btn-standard'>Avbryt</button>
+                    <button type='submit' class='btn btn-standard'>Spara</button>
+                    <p id='update-error' style='color: red; display: none;'></p>
+                </form>
+            </div>
+        `;
+
+        document.getElementById('update-booking-form').addEventListener('submit', (e) => {
+            e.preventDefault(); 
+            handleUpdateBookingSubmit();
+        });
+
+        content.querySelector('#btn-cancel').addEventListener('click', () => {
+            handleBackButton();
+        });
+    } catch (error) {
+        console.error('Kunde inte ladda bokningsformulär:', error);
+    }
+}
+async function renderUpdateUserForm(userId) {
+    console.log('renderUpdateUserForm');
+    const content = document.getElementById('content-area');
+
+    try {
+        const user = await apiGetUserById(userId);//apiFetch(`/users/${userId}`);
         if (!user) return;
 
         content.innerHTML = `
@@ -1086,7 +1596,6 @@ async function renderUpdateUserForm(userId) {
             </div>
         `;
 
-        // 2. Koppla lyssnaren DIREKT när vi vet att elementet finns i DOM:en
         document.getElementById('update-user-form').addEventListener('submit', (e) => {
             e.preventDefault(); // Hindra sidan från att laddas om
             handleUpdateUserSubmit();
@@ -1099,6 +1608,7 @@ async function renderUpdateUserForm(userId) {
     }
 }
 function renderDeleteUserConfirm(userId) {
+    console.log('renderDeleteUserConfirm');
     customConfirm(
         `Är du helt säker på att du vill ta bort användaren med ID ${userId}? Denna åtgärd kan inte ångras.`,
         () => {
@@ -1108,6 +1618,7 @@ function renderDeleteUserConfirm(userId) {
 }
 
 function renderDeleteCarConfirm(carId) {
+    console.log('renderDeleteCarConfirm');
     customConfirm(
         `Är du helt säker på att du vill ta bort bil med ID ${carId}? Denna åtgärd kan inte ångras.`,
         () => {
@@ -1116,6 +1627,7 @@ function renderDeleteCarConfirm(carId) {
     );
 }
 function renderEndBookingConfirm(bookingId) {
+    console.log('renderEndBookingConfirm');
     customConfirm(
         `Är du helt säker på att du vill avsluta bokning med ID ${bookingId}?`,
         () => {
@@ -1123,7 +1635,9 @@ function renderEndBookingConfirm(bookingId) {
         }
     );
 }
+
 function renderDeleteBookingConfirm(bookingId) {
+console.log('renderDeleteBookingConfirm');
     customConfirm(
         `Är du helt säker på att du vill ta bort bokning med ID ${bookingId}? Denna åtgärd kan inte ångras.`,
         () => {
@@ -1132,13 +1646,13 @@ function renderDeleteBookingConfirm(bookingId) {
     );
 }
 async function renderUpdateCarForm(carId) {
+    console.log('renderUpdateCarForm');
     const content = document.getElementById('content-area');
 
     try {
-        const car = await apiFetch(`/cars/${carId}`);//apiGetCarById(carId);
+        const car = await apiGetCarById(carId);//apiFetch(`/cars/${carId}`);
         if (!car) return;
 
-        // 1. Rita ut formuläret på skärmen
         content.innerHTML = `
             <div class='update-car-container'>
                 <h2>Uppdatera bil med id: ${carId}</h2>
@@ -1170,7 +1684,8 @@ async function renderUpdateCarForm(carId) {
         `;
 
         document.getElementById('update-car-form').addEventListener('submit', (e) => {
-            e.preventDefault(); // Hindra sidan från att laddas om
+            e.preventDefault(); 
+            //lastPageForBackButton = {page: renderUpdateCarForm, id: carId};
             handleUpdateCarSubmit(carId);
         });
         content.querySelector('#btn-cancel').addEventListener('click', () => {
@@ -1181,6 +1696,7 @@ async function renderUpdateCarForm(carId) {
     }
 }
 function renderNewCarView() {
+    console.log('renderNewCarView');
     const content = document.getElementById('content-area');
     content.innerHTML = `
             <div class='new-car-container'>
@@ -1219,18 +1735,24 @@ function renderNewCarView() {
         handleBackButton();
     });
 } async function renderBookingsForUser() {
+    console.log('renderBookingsForUser');
     const content = document.getElementById('content-area');
 
-    // 1. Hämta datan först av allt så vi har något att visa och sortera!
-    let bookings = await apiFetch(`/bookings/me`);
-    if (!bookings) return; // Om något gick fel i apiFetch, avbryt
-
-    // 2. Skapa tabellen och tbody
+    let bookings = await apiGetBookingsForLoggedInUser();//apiFetch(`/bookings/me`);
+    if (!bookings) return;
+    if (bookings.length === 0) {
+        content.innerHTML = `
+            <h2>Mina bokningar</h2>
+            <div class='info-box'>
+                <p>Du har inga registrerade bokningar för tillfället.</p>
+            </div>
+        `;
+        return; 
+    }
     const table = document.createElement('table');
     table.classList.add('table-rows');
     const tbody = document.createElement('tbody');
 
-    // 3. Definiera vilka kolumner vi vill ha i tabellen
     const columns = [
         { id: 'id', label: 'Id' },
         { id: 'active', label: 'Aktiv' },
@@ -1269,6 +1791,7 @@ function renderNewCarView() {
    ==========================================================================
    ========================================================================== */
 async function handleLoginSubmit() {
+    console.log('handleLoginSubmit');
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     const errorMsg = document.getElementById('login-error');
@@ -1297,6 +1820,7 @@ async function handleLoginSubmit() {
 }
 // SEKTION 3: HANDLERS
 async function handleCreateUserSubmit() {
+    console.log('handleCreateUserSubmit');
     const firstName = document.getElementById('firstName').value;
     const lastName = document.getElementById('lastName').value;
     const phone = document.getElementById('phone').value;
@@ -1304,7 +1828,7 @@ async function handleCreateUserSubmit() {
     const username = document.getElementById('email').value;
     const password = document.getElementById('password').value;
     const password2 = document.getElementById('password2').value;
-    const errorMsg = document.getElementById('login-error');
+    const errorMsg = document.getElementById('create-user-error');
 
     if (password !== password2) {
         errorMsg.textContent = 'Lösenorden matchar inte!';
@@ -1313,7 +1837,7 @@ async function handleCreateUserSubmit() {
     }
 
     const userData = { firstName, lastName, username, phone, email, password };
-    const savedUser = await apiFetch('/users', 'POST', userData);//apiCreateUser(userData);
+    const savedUser = await apiCreateUser(userData);
 
     if (savedUser) {
 
@@ -1335,7 +1859,50 @@ async function handleCreateUserSubmit() {
     }
 }
 // SEKTION 3: HANDLERS
+
+async function handleUpdateBookingSubmit() {
+    console.log('handleUpdateBookingSubmit');
+    const bookingId = document.getElementById('update-id').value;
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    const userId = document.getElementById('userId').value;
+    const carId = document.getElementById('carId').value;
+    const active = document.getElementById('active').value === 'true';
+    const errorMsg = document.getElementById('update-error');
+    errorMsg.style.display = 'none';
+
+    if (!startDate.trim() || !endDate.trim() || !userId.trim() || !carId.trim()) {
+        errorMsg.textContent = 'Alla fält måste fyllas i!';
+        errorMsg.style.display = 'block';
+        return;
+    }
+    if (new Date(startDate) > new Date(endDate)) {
+        errorMsg.textContent = 'Till-datumet kan inte vara före från-datumet!';
+        errorMsg.style.display = 'block';
+        return; 
+    }
+
+    const bookingData = {
+        id: bookingId, 
+        fromDate: startDate, 
+        toDate: endDate, 
+        userId: userId, 
+        carId: carId, 
+        active: active
+    };
+    const response = await apiUpdateBooking(bookingId, bookingData);
+
+    if (response) {
+            customAlert('Bokning uppdaterad framgångsrikt!', 'positive');
+            showPage('view-bookings');
+        
+    } else {
+        errorMsg.textContent = 'Kunde inte uppdatera bokning.';
+        errorMsg.style.display = 'block';
+    }
+}
 async function handleUpdateUserSubmit() {
+    console.log('handleUpdateUserSubmit');
     const userId = document.getElementById('update-id').value;
     const firstName = document.getElementById('firstName').value;
     const lastName = document.getElementById('lastName').value;
@@ -1365,13 +1932,14 @@ async function handleUpdateUserSubmit() {
         'role': sessionStorage.getItem('userRole')
     };
 
-    const response = await apiFetch(`/users/${userId}`, 'PUT', userData);
+    const response = await apiUpdateUser(userId, userData);
 
     if (response) {
         if (sessionStorage.getItem('userRole') === 'ADMIN') {
             customAlert('Användare uppdaterad framgångsrikt!', 'positive');
             showPage('view-users');
         } else if (sessionStorage.getItem('userId') == userId) {
+            //här,fel
             if (sessionStorage.getItem('email') === email) {
                 await updateUserSession(userId);
                 showPage('view-cars');
@@ -1388,7 +1956,7 @@ async function handleUpdateUserSubmit() {
     }
 }
 async function handleDeleteUserSubmit(userId) {
-
+console.log('handleDeleteUserSubmit');
 
     // Säkerhetskoll så man inte tar bort sig själv
     if (userId == sessionStorage.getItem('userId')) {
@@ -1396,7 +1964,7 @@ async function handleDeleteUserSubmit(userId) {
         return;
     }
 
-    const response = await apiFetch(`/users/${userId}`, 'DELETE');//apiDeleteUser(userId);
+    const response = await apiDeleteUser(userId);
 
     if (response) {
         customAlert(`Användare med id ${userId} borttagen ur databasen.`, 'positive');
@@ -1406,7 +1974,8 @@ async function handleDeleteUserSubmit(userId) {
     }
 }
 async function handleDeleteBookingSubmit(bookingId) {
-    const response = await apiFetch(`/bookings/${bookingId}`, 'DELETE');//apiDeleteBooking(bookingId);
+    console.log('handleDeleteBookingSubmit');
+    const response = await apiDeleteBooking(bookingId);
 
     if (response) {
         lastPageForBackButton = { page: renderBookingsView, id: null };
@@ -1417,7 +1986,8 @@ async function handleDeleteBookingSubmit(bookingId) {
     }
 }
 async function handleEndBookingSubmit(bookingId) {
-    const response = await apiFetch(`/bookings/return/${bookingId}`, 'PUT');
+    console.log('handleEndBookingSubmit');
+    const response = await apiBookingReturnCar(bookingId);//apiFetch(`/bookings/return/${bookingId}`, 'PUT');
 
     if (response) {
         customAlert(`Bokning med id ${bookingId} är avslutad.`, 'positive');
@@ -1429,7 +1999,8 @@ async function handleEndBookingSubmit(bookingId) {
 }
 
 async function handleBookCarSubmit(carId) {
-    const car = await apiFetch(`/cars/${carId}`);
+    console.log('handleBookCarSubmit(carI');
+    const car = await apiGetCarById(carId);//apiFetch(`/cars/${carId}`);
     if (!car) return;
 
     const modalOverlay = document.createElement('div');
@@ -1479,13 +2050,13 @@ async function handleBookCarSubmit(carId) {
         const days = parseInt(modalOverlay.querySelector('#booking-days').value);
         endDate.setDate(endDate.getDate() + days);
         endDate = endDate.toLocaleDateString('sv-SE');
-        const bookingData = {
+        /*const bookingData = {
             fromDate: today,
             toDate: endDate,
             carId: carId,
             userId: sessionStorage.getItem('userId')
-        };
-        const response = await apiFetch(`/bookings`, 'POST', bookingData);
+        };*/
+        const response = await apiCreateBooking(today, endDate, carId, sessionStorage.getItem('userId'));//apiFetch(`/bookings`, 'POST', bookingData);
         if (response) {
             customAlert('Bilen har bokats!', 'positive');
             renderBookingsForUser(); // Skicka användaren till sina bokningar
@@ -1498,6 +2069,7 @@ async function handleBookCarSubmit(carId) {
 
 }
 async function handleUpdateCarSubmit(carId) {
+    console.log('handleUpdateCarSubmit(');
     const name = document.getElementById('name').value;
     const model = document.getElementById('model').value;
     const type = document.getElementById('type').value;
@@ -1519,12 +2091,13 @@ async function handleUpdateCarSubmit(carId) {
         name, model, feature1, feature2, feature3, type, price
     };
 
-    const response = await apiFetch(`/cars/${carId}`, 'PUT', carData);//apiUpdateCar(carId, carData);
+    const response = await apiUpdateCar(carId, carData);
 
     if (response) {
 
         customAlert('Bil uppdaterad framgångsrikt!', 'positive');
-        showPage('view-cars');
+        //showPage('view-cars');
+        renderCarDetails(carId);
 
     } else {
         errorMsg.textContent = 'Kunde inte uppdatera bil.';
@@ -1533,7 +2106,8 @@ async function handleUpdateCarSubmit(carId) {
 }
 
 async function handleDeleteCarSubmit(carId) {
-    const response = await apiFetch(`/cars/${carId}`, 'DELETE');
+    console.log('handleDeleteCarSubmit(');
+    const response = await apiDeleteCar(carId);//apiFetch(`/cars/${carId}`, 'DELETE');
 
     if (response) {
         customAlert(`Bil med id ${carId} borttagen ur databasen.`, 'positive');
@@ -1544,6 +2118,7 @@ async function handleDeleteCarSubmit(carId) {
 }
 
 async function handleCreateCarSubmit() {
+    console.log('handleCreateCarSubmit() ');
     const errorMsg = document.getElementById('car-error');
     errorMsg.style.display = 'none';
 
@@ -1562,7 +2137,7 @@ async function handleCreateCarSubmit() {
         formData.append('image', imageInput.files[0]);
     }
 
-    const car = await apiFetch(`/cars`, 'POST', formData, true);
+    const car = await apiCreateCar(formData);//apiFetch(`/cars`, 'POST', formData, true);
 
     if (car) {
         customAlert('Bilen är sparad!', 'positive');
@@ -1581,12 +2156,13 @@ async function handleCreateCarSubmit() {
 document.getElementById('menu-toggle').onclick = function () {
     document.querySelector('.sidebar').classList.toggle('mobile-open');
 };
-
 function closeMobileMenu() {
+    console.log('closeMobileMenu');
     document.querySelector('.sidebar').classList.remove('mobile-open');
 }
 
 function initApp() {
+    console.log('initApp');
     const savedRole = sessionStorage.getItem('userRole');
     if (!savedRole) {
         sessionStorage.clear();
